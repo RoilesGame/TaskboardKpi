@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Таскборд</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="header">
+    <div>
+        <h1>Моя компания</h1>
+        <span class="subtitle">Канбан-доска</span>
+    </div>
+    <button id="logout-btn" style="background: transparent; border: 1px solid #d1d5db; padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;">Выйти</button>
+</header>
+
+<main class="board">
+    <div class="column" data-status="backlog">
+        <div class="column-header">
+            <h2>Бэклог</h2>
+            <span class="task-count" id="backlog-count">0</span>
+        </div>
+        <div class="task-list" id="backlog"></div>
+    </div>
+    <div class="column" data-status="in_progress">
+        <div class="column-header">
+            <h2>В работе</h2>
+            <span class="task-count" id="in_progress-count">0</span>
+        </div>
+        <div class="task-list" id="in_progress"></div>
+    </div>
+    <div class="column" data-status="review">
+        <div class="column-header">
+            <h2>Ревью</h2>
+            <span class="task-count" id="review-count">0</span>
+        </div>
+        <div class="task-list" id="review"></div>
+    </div>
+    <div class="column" data-status="done">
+        <div class="column-header">
+            <h2>Готово</h2>
+            <span class="task-count" id="done-count">0</span>
+        </div>
+        <div class="task-list" id="done"></div>
+    </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="board.js"></script>
+<script>
+    // Кнопка выхода
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    });
+</script>
+</body>
+</html>
