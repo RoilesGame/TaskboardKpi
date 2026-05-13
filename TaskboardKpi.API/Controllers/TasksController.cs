@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskboardKpi.API.Data;
+using TaskboardKpi.API.Models;
 
 namespace TaskboardKpi.API.Controllers;
 
@@ -51,10 +53,53 @@ public class TasksController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok(task);
     }
+
+    // POST api/tasks
+    [HttpPost]
+    public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto dto)
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (userIdClaim == null || teamIdClaim == null) return Unauthorized();
+
+        var userId = Guid.Parse(userIdClaim.Value);
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        // Проверяем права: владелец команды или (участник и разрешено allowMemberEditing)
+        var team = await _db.Teams.FindAsync(teamId);
+        if (team == null) return NotFound("Команда не найдена");
+        if (team.OwnerId != userId && !team.AllowMemberEditing)
+            return Forbid("Недостаточно прав для создания задач");
+
+        var task = new TaskItem
+        {
+            TeamId = teamId,
+            Title = dto.Title,
+            Description = dto.Description,
+            Status = dto.Status ?? "backlog",
+            Priority = dto.Priority ?? "medium",
+            CreatedBy = userId,
+            Position = await _db.Tasks.CountAsync(t => t.TeamId == teamId && t.Status == (dto.Status ?? "backlog"))
+        };
+
+        _db.Tasks.Add(task);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { id = task.Id });
+    }
 }
 
+// DTO
 public class MoveTaskDto
 {
     public string NewStatus { get; set; } = string.Empty;
     public int NewPosition { get; set; }
+}
+
+public class CreateTaskDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Status { get; set; }
+    public string? Priority { get; set; }
 }

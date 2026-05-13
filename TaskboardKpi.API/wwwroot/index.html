@@ -14,6 +14,15 @@
             <div class="avatar" id="user-avatar">?</div>
             <span class="user-name" id="user-name">Загрузка...</span>
         </div>
+        <div class="teams-section">
+            <h3>Команды</h3>
+            <ul id="teams-list" class="teams-list">
+                <!-- Заполнится через JS -->
+            </ul>
+        </div>
+
+        <button id="create-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">+ Создать команду</button>
+        
         <nav class="sidebar-actions">
             <button id="new-task-btn" class="btn-primary">Новая задача</button>
             <button id="logout-btn" class="btn-secondary">Выйти</button>
@@ -72,6 +81,25 @@
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-modal">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно создания команды -->
+<div id="team-modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Создать команду</h3>
+        <form id="create-team-form">
+            <label>Название команды</label>
+            <input type="text" id="team-name" required>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="allow-edit">
+                <span>Разрешить участникам создавать и редактировать задачи</span>
+            </label>
+            <div class="modal-actions">
+                <button type="submit">Создать</button>
+                <button type="button" id="close-team-modal">Отмена</button>
             </div>
         </form>
     </div>

@@ -128,8 +128,28 @@ public class AuthController : ControllerBase
             avatarUrl = user.AvatarUrl // может быть null
         });
     }
+    
+    // POST api/auth/switch-team
+    [HttpPost("switch-team")]
+    public async Task<IActionResult> SwitchTeam([FromBody] SwitchTeamDto dto)
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+
+        var userId = Guid.Parse(userIdClaim.Value);
+
+        // Проверяем, состоит ли пользователь в команде
+        var membership = await _db.TeamMembers
+            .FirstOrDefaultAsync(tm => tm.TeamId == dto.TeamId && tm.UserId == userId);
+        if (membership == null)
+            return Forbid("Вы не состоите в этой команде");
+
+        var newToken = GenerateJwt(userId, dto.TeamId);
+        return Ok(new { token = newToken, teamId = dto.TeamId });
+    }
 }
 
 // DTO
 public record RegisterDto(string Email, string Password, string FullName, string? TeamName);
 public record LoginDto(string Email, string Password);
+public record SwitchTeamDto(Guid TeamId);

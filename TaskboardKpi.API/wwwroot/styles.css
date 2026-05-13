@@ -262,3 +262,76 @@ body {
     border: 1px solid #d1d5db;
     color: #4b5563;
 }
+
+/* Секция команд в сайдбаре */
+.teams-section {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.teams-section h3 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.teams-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.team-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1e293b;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+
+.team-item:hover {
+    background: #f3f4f6;
+}
+
+.team-item.active {
+    background: #e0e7ff;
+    font-weight: 500;
+}
+
+.team-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.team-badge.owner {
+    background: #6366f1;
+    color: white;
+}
+
+.team-badge.member {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.team-owner {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    display: block;
+}

@@ -1,4 +1,5 @@
 const statuses = ['backlog', 'in_progress', 'review', 'done'];
+let currentToken = null;  // будет хранить токен
 
 // ================== Утилиты ==================
 function showToast(message, type = 'error') {
@@ -39,11 +40,11 @@ function checkAuth() {
     return token;
 }
 
-// ================== Загрузка профиля ==================
-async function loadProfile(token) {
+// ================== Профиль ==================
+async function loadProfile() {
     try {
         const resp = await fetch('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!resp.ok) throw new Error('Ошибка профиля');
         const profile = await resp.json();
@@ -52,15 +53,100 @@ async function loadProfile(token) {
         avatar.textContent = profile.fullName.charAt(0).toUpperCase();
     } catch (e) {
         console.error('Не удалось загрузить профиль', e);
-        document.getElementById('user-name').textContent = 'Неизвестно';
     }
 }
 
-// ================== Загрузка и рендер доски ==================
-async function loadBoard(token) {
+// ================== Список команд ==================
+async function loadTeams() {
+    const list = document.getElementById('teams-list');
+    if (!list) return;
+
+    try {
+        const resp = await fetch('/api/teams/my', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!resp.ok) throw new Error('Не удалось загрузить команды');
+        const teams = await resp.json();
+
+        // Определяем текущий teamId из токена
+        const tokenData = parseJwt(currentToken);
+        const currentTeamId = tokenData?.teamId;
+
+        list.innerHTML = '';
+        teams.forEach(team => {
+            const li = document.createElement('li');
+            li.className = 'team-item';
+            if (team.id === currentTeamId) li.classList.add('active');
+
+            li.innerHTML = `
+                <div style="display: flex; flex-direction: column;">
+                    <span>${escapeHtml(team.name)}</span>
+                    ${team.isOwner ? '' : `<span class="team-owner">Владелец: ${escapeHtml(team.ownerName)}</span>`}
+                </div>
+                <span class="team-badge ${team.isOwner ? 'owner' : 'member'}">
+                    ${team.isOwner ? 'Админ' : 'Участник'}
+                </span>
+            `;
+            li.addEventListener('click', async () => {
+                if (team.id === currentTeamId) return; // уже выбрана
+                await switchTeam(team.id);
+            });
+            list.appendChild(li);
+        });
+    } catch (err) {
+        console.error('Ошибка загрузки команд', err);
+    }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
+async function switchTeam(teamId) {
+    try {
+        const resp = await fetch('/api/auth/switch-team', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ teamId })
+        });
+        if (!resp.ok) throw new Error('Не удалось переключить команду');
+        const data = await resp.json();
+        localStorage.setItem('token', data.token);
+        currentToken = data.token;
+
+        // Перезагружаем профиль, список команд и доску
+        await loadProfile();
+        await loadTeams();
+        await loadBoard();
+    } catch (err) {
+        console.error(err);
+        showToast('Ошибка при переключении команды');
+    }
+}
+
+// ================== Доска ==================
+async function loadBoard() {
     try {
         const response = await fetch('/api/tasks/board', {
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!response.ok) throw new Error('Не авторизован');
         const board = await response.json();
@@ -91,11 +177,13 @@ function renderColumn(status, tasks) {
 }
 
 // ================== Drag-and-drop ==================
-function initSortable(token) {
+function initSortable() {
     statuses.forEach(status => {
         const el = document.getElementById(status);
         if (!el) return;
-        new Sortable(el, {
+        // Удаляем старые Sortable, если есть (чтобы не дублировались при переключении)
+        if (el.sortable) el.sortable.destroy();
+        el.sortable = new Sortable(el, {
             group: 'tasks',
             animation: 150,
             onEnd: async function (evt) {
@@ -108,7 +196,7 @@ function initSortable(token) {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${currentToken}`
                         },
                         body: JSON.stringify({ newStatus, newPosition })
                     });
@@ -119,16 +207,13 @@ function initSortable(token) {
 }
 
 // ================== Модальное окно создания задачи ==================
-function initCreateTaskModal(token) {
+function initCreateTaskModal() {
     const modal = document.getElementById('modal-overlay');
     const openBtn = document.getElementById('new-task-btn');
     const closeBtn = document.getElementById('close-modal');
     const form = document.getElementById('create-task-form');
 
-    if (!modal || !openBtn || !closeBtn || !form) {
-        console.warn('Модальное окно не найдено');
-        return;
-    }
+    if (!modal || !openBtn || !closeBtn || !form) return;
 
     openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
@@ -147,7 +232,7 @@ function initCreateTaskModal(token) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${currentToken}`
             },
             body: JSON.stringify({ title, description, priority })
         });
@@ -155,11 +240,58 @@ function initCreateTaskModal(token) {
         if (res.ok) {
             modal.classList.add('hidden');
             form.reset();
-            await loadBoard(token);
+            await loadBoard();
             showToast('Задача создана', 'success');
         } else {
             const err = await res.text();
             showToast(err || 'Ошибка создания задачи');
+        }
+    });
+}
+
+// ================== Модальное окно создания новой доски ==================
+function initCreateTeamModal() {
+    const modal = document.getElementById('team-modal-overlay');
+    const openBtn = document.getElementById('create-team-btn');
+    const closeBtn = document.getElementById('close-team-modal');
+    const form = document.getElementById('create-team-form');
+
+    if (!modal || !openBtn || !closeBtn || !form) return;
+
+    openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('team-name').value.trim();
+        const allowEdit = document.getElementById('allow-edit').checked;
+        if (!name) return;
+
+        const res = await fetch('/api/teams', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ name, allowMemberEditing: allowEdit })
+        });
+
+        if (res.ok) {
+            modal.classList.add('hidden');
+            form.reset();
+            showToast('Команда создана', 'success');
+            await loadTeams(); // обновить список команд
+            // Опционально: автоматически переключиться на новую команду
+            const newTeam = await res.json();
+            if (newTeam.id) {
+                await switchTeam(newTeam.id);
+            }
+        } else {
+            const err = await res.text();
+            showToast(err || 'Ошибка создания команды');
         }
     });
 }
@@ -176,11 +308,16 @@ function initLogout() {
 }
 
 // ================== Старт ==================
-const token = checkAuth();
-if (token) {
-    loadProfile(token);        // загружаем имя и аватар
-    initLogout();
-    initSortable(token);
-    initCreateTaskModal(token);
-    loadBoard(token);
+currentToken = checkAuth();
+if (currentToken) {
+    // Последовательная инициализация
+    loadProfile().then(() => {
+        return loadTeams();
+    }).then(() => {
+        initLogout();
+        initSortable();
+        initCreateTaskModal();
+        initCreateTeamModal();
+        return loadBoard();
+    }).catch(err => console.error(err));
 }
