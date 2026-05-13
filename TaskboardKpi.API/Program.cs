@@ -46,7 +46,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed (выполнится, если таблицы есть, но нет пользователей)
+// Seed (выполнится, если база пуста)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -57,26 +57,26 @@ using (var scope = app.Services.CreateScope())
         var user = new TaskboardKpi.API.Models.User
         {
             Email = "demo@taskboard.com",
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword("demo"), // тестовый пароль
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("demo"),
             FullName = "Демо Пользователь"
         };
         db.Users.Add(user);
         db.SaveChanges();
 
-        var company = new TaskboardKpi.API.Models.Company
+        var team = new TaskboardKpi.API.Models.Team
         {
-            Name = "Моя компания",
+            Name = "Моя команда",
             OwnerId = user.Id
         };
-        db.Companies.Add(company);
+        db.Teams.Add(team);
         db.SaveChanges();
 
         var tasks = new TaskboardKpi.API.Models.TaskItem[]
         {
-            new() { CompanyId = company.Id, Title = "Сверстать главную страницу", Status = "backlog", Priority = "medium", CreatedBy = user.Id, Position = 0 },
-            new() { CompanyId = company.Id, Title = "Написать API для задач", Status = "in_progress", Priority = "high", CreatedBy = user.Id, Position = 0 },
-            new() { CompanyId = company.Id, Title = "Провести код-ревью", Status = "review", Priority = "medium", CreatedBy = user.Id, Position = 0 },
-            new() { CompanyId = company.Id, Title = "Настроить CI/CD", Status = "done", Priority = "low", CreatedBy = user.Id, Position = 0 }
+            new() { TeamId = team.Id, Title = "Сверстать главную страницу", Status = "backlog", Priority = "medium", CreatedBy = user.Id, Position = 0 },
+            new() { TeamId = team.Id, Title = "Написать API для задач", Status = "in_progress", Priority = "high", CreatedBy = user.Id, Position = 0 },
+            new() { TeamId = team.Id, Title = "Провести код-ревью", Status = "review", Priority = "medium", CreatedBy = user.Id, Position = 0 },
+            new() { TeamId = team.Id, Title = "Настроить CI/CD", Status = "done", Priority = "low", CreatedBy = user.Id, Position = 0 }
         };
         db.Tasks.AddRange(tasks);
         db.SaveChanges();

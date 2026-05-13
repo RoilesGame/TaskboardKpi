@@ -8,8 +8,6 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     public DbSet<User> Users => Set<User>();
-    public DbSet<Company> Companies => Set<Company>();
-    public DbSet<CompanyMember> CompanyMembers => Set<CompanyMember>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
@@ -19,52 +17,22 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Применяем snake_case ко всем таблицам и столбцам
+        // snake_case для всех таблиц и столбцов
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            // Имя таблицы
             entity.SetTableName(entity.GetTableName().ToSnakeCase());
-
-            // Имена столбцов
             foreach (var property in entity.GetProperties())
-            {
                 property.SetColumnName(property.GetColumnName().ToSnakeCase());
-            }
         }
 
-        // --- Явная настройка внешних ключей и навигаций ---
-
-        // User -> Company
-        modelBuilder.Entity<Company>()
-            .HasOne(c => c.Owner)
+        // Team -> Owner
+        modelBuilder.Entity<Team>()
+            .HasOne(t => t.Owner)
             .WithMany()
-            .HasForeignKey(c => c.OwnerId)
+            .HasForeignKey(t => t.OwnerId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // CompanyMembers
-        modelBuilder.Entity<CompanyMember>()
-            .HasOne(cm => cm.Company)
-            .WithMany(c => c.Members)
-            .HasForeignKey(cm => cm.CompanyId);
-
-        modelBuilder.Entity<CompanyMember>()
-            .HasOne(cm => cm.User)
-            .WithMany()
-            .HasForeignKey(cm => cm.UserId);
-
-        // Teams
-        modelBuilder.Entity<Team>()
-            .HasOne(t => t.Company)
-            .WithMany(c => c.Teams)
-            .HasForeignKey(t => t.CompanyId);
-
-        modelBuilder.Entity<Team>()
-            .HasOne(t => t.Creator)
-            .WithMany()
-            .HasForeignKey(t => t.CreatedBy)
-            .IsRequired(false);
-
-        // TeamMembers
+        // TeamMember
         modelBuilder.Entity<TeamMember>()
             .HasOne(tm => tm.Team)
             .WithMany(t => t.Members)
@@ -75,30 +43,22 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(tm => tm.UserId);
 
-        // TaskItem – главная настройка!
-        modelBuilder.Entity<TaskItem>()
-            .HasOne(t => t.Company)
-            .WithMany(c => c.Tasks)
-            .HasForeignKey(t => t.CompanyId);
-
+        // TaskItem
         modelBuilder.Entity<TaskItem>()
             .HasOne(t => t.Team)
-            .WithMany()
-            .HasForeignKey(t => t.TeamId)
-            .IsRequired(false);
+            .WithMany(team => team.Tasks)
+            .HasForeignKey(t => t.TeamId);
 
-        // Assignee – FK к Users
         modelBuilder.Entity<TaskItem>()
             .HasOne(t => t.Assignee)
             .WithMany()
-            .HasForeignKey(t => t.AssigneeId)   // это реальный столбец assignee_id
+            .HasForeignKey(t => t.AssigneeId)
             .IsRequired(false);
 
-        // CreatedBy – FK к Users (ВАЖНО: указываем поле CreatedBy, а не навигацию)
         modelBuilder.Entity<TaskItem>()
             .HasOne(t => t.CreatedByUser)
             .WithMany()
-            .HasForeignKey(t => t.CreatedBy)    // столбец created_by
+            .HasForeignKey(t => t.CreatedBy)
             .OnDelete(DeleteBehavior.Restrict);
 
         // TaskComment
@@ -114,18 +74,13 @@ public class AppDbContext : DbContext
 
         // UUID генерация
         modelBuilder.Entity<User>().Property(u => u.Id).HasDefaultValueSql("gen_random_uuid()");
-        modelBuilder.Entity<Company>().Property(c => c.Id).HasDefaultValueSql("gen_random_uuid()");
-        modelBuilder.Entity<CompanyMember>().Property(cm => cm.Id).HasDefaultValueSql("gen_random_uuid()");
         modelBuilder.Entity<Team>().Property(t => t.Id).HasDefaultValueSql("gen_random_uuid()");
         modelBuilder.Entity<TeamMember>().Property(tm => tm.Id).HasDefaultValueSql("gen_random_uuid()");
         modelBuilder.Entity<TaskItem>().Property(t => t.Id).HasDefaultValueSql("gen_random_uuid()");
         modelBuilder.Entity<TaskComment>().Property(tc => tc.Id).HasDefaultValueSql("gen_random_uuid()");
 
-        // Уникальные индексы
+        // Индексы
         modelBuilder.Entity<User>().HasIndex(u => u.Email).IsUnique();
-        modelBuilder.Entity<CompanyMember>()
-            .HasIndex(cm => new { cm.CompanyId, cm.UserId })
-            .IsUnique();
         modelBuilder.Entity<TeamMember>()
             .HasIndex(tm => new { tm.TeamId, tm.UserId })
             .IsUnique();

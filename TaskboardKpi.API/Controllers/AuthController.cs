@@ -38,17 +38,21 @@ public class AuthController : ControllerBase
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
-        // Создаём компанию для нового пользователя
-        var company = new Company
+        // Создаём команду для нового пользователя
+        var team = new Team
         {
-            Name = dto.CompanyName ?? "Моя компания",
+            Name = dto.TeamName ?? "Моя команда",
             OwnerId = user.Id
         };
-        _db.Companies.Add(company);
+        _db.Teams.Add(team);
         await _db.SaveChangesAsync();
 
-        var token = GenerateJwt(user.Id, company.Id);
-        return Ok(new { token, companyId = company.Id });
+        // Добавляем владельца в участники (опционально)
+        _db.TeamMembers.Add(new TeamMember { TeamId = team.Id, UserId = user.Id });
+        await _db.SaveChangesAsync();
+
+        var token = GenerateJwt(user.Id, team.Id);
+        return Ok(new { token, teamId = team.Id });
     }
 
     // POST api/auth/login
@@ -59,24 +63,34 @@ public class AuthController : ControllerBase
         if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return Unauthorized("Неверный email или пароль");
 
-        // Ищем компанию, где пользователь владелец или участник
-        var company = await _db.Companies
-            .Where(c => c.OwnerId == user.Id)
-            .FirstOrDefaultAsync();
+        // Ищем какую-нибудь команду, где пользователь владелец или участник
+        var teamMember = await _db.TeamMembers
+            .Include(tm => tm.Team)
+            .FirstOrDefaultAsync(tm => tm.UserId == user.Id);
 
-        if (company == null)
-            return NotFound("Компания не найдена");
+        if (teamMember == null)
+        {
+            // Создаём команду автоматически, если её нет
+            var team = new Team { Name = "Моя команда", OwnerId = user.Id };
+            _db.Teams.Add(team);
+            await _db.SaveChangesAsync();
+            _db.TeamMembers.Add(new TeamMember { TeamId = team.Id, UserId = user.Id });
+            await _db.SaveChangesAsync();
 
-        var token = GenerateJwt(user.Id, company.Id);
-        return Ok(new { token, companyId = company.Id });
+            var token = GenerateJwt(user.Id, team.Id);
+            return Ok(new { token, teamId = team.Id });
+        }
+
+        var tokenMain = GenerateJwt(user.Id, teamMember.TeamId);
+        return Ok(new { token = tokenMain, teamId = teamMember.TeamId });
     }
 
-    private string GenerateJwt(Guid userId, Guid companyId)
+    private string GenerateJwt(Guid userId, Guid teamId)
     {
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim("companyId", companyId.ToString())
+            new Claim("teamId", teamId.ToString())
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
@@ -96,5 +110,5 @@ public class AuthController : ControllerBase
 }
 
 // DTO
-public record RegisterDto(string Email, string Password, string FullName, string? CompanyName);
+public record RegisterDto(string Email, string Password, string FullName, string? TeamName);
 public record LoginDto(string Email, string Password);

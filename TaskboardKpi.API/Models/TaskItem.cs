@@ -3,10 +3,8 @@ namespace TaskboardKpi.API.Models;
 public class TaskItem
 {
     public Guid Id { get; set; }
-    public Guid CompanyId { get; set; }
-    public Company Company { get; set; } = null!;
-    public Guid? TeamId { get; set; }
-    public Team? Team { get; set; }
+    public Guid TeamId { get; set; }
+    public Team Team { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string Status { get; set; } = "backlog";
