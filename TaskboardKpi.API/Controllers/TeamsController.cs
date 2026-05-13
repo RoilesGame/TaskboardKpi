@@ -15,7 +15,7 @@ public class TeamsController : ControllerBase
     private readonly AppDbContext _db;
     public TeamsController(AppDbContext db) => _db = db;
 
-    // GET api/teams/my – список команд пользователя
+    // GET api/teams/my
     [HttpGet("my")]
     public async Task<IActionResult> GetMyTeams()
     {
@@ -26,7 +26,7 @@ public class TeamsController : ControllerBase
         var teams = await _db.TeamMembers
             .Where(tm => tm.UserId == userId)
             .Include(tm => tm.Team)
-            .ThenInclude(t => t.Owner)
+                .ThenInclude(t => t.Owner)
             .Select(tm => new
             {
                 id = tm.Team.Id,
@@ -38,7 +38,30 @@ public class TeamsController : ControllerBase
 
         return Ok(teams);
     }
-    
+
+    // GET api/teams/members
+    [HttpGet("members")]
+    public async Task<IActionResult> GetMembers()
+    {
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (teamIdClaim == null) return Unauthorized();
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var members = await _db.TeamMembers
+            .Where(tm => tm.TeamId == teamId)
+            .Include(tm => tm.User)
+            .Select(tm => new
+            {
+                id = tm.User.Id,
+                fullName = tm.User.FullName,
+                avatarUrl = tm.User.AvatarUrl,
+                isOwner = tm.Team.OwnerId == tm.User.Id
+            })
+            .ToListAsync();
+
+        return Ok(members);
+    }
+
     // POST api/teams
     [HttpPost]
     public async Task<IActionResult> CreateTeam([FromBody] CreateTeamDto dto)
@@ -56,7 +79,6 @@ public class TeamsController : ControllerBase
         _db.Teams.Add(team);
         await _db.SaveChangesAsync();
 
-        // Добавляем создателя как участника
         _db.TeamMembers.Add(new TeamMember { TeamId = team.Id, UserId = userId });
         await _db.SaveChangesAsync();
 

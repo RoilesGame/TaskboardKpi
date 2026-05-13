@@ -8,7 +8,6 @@
 </head>
 <body>
 <div class="layout">
-    <!-- Боковая панель -->
     <aside class="sidebar">
         <div class="profile">
             <div class="avatar" id="user-avatar">?</div>
@@ -16,20 +15,19 @@
         </div>
         <div class="teams-section">
             <h3>Команды</h3>
-            <ul id="teams-list" class="teams-list">
-                <!-- Заполнится через JS -->
-            </ul>
+            <ul id="teams-list" class="teams-list"></ul>
         </div>
-
         <button id="create-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">+ Создать команду</button>
-        
+        <div class="members-section">
+            <h3>Участники</h3>
+            <ul id="members-list" class="members-list"></ul>
+        </div>
         <nav class="sidebar-actions">
             <button id="new-task-btn" class="btn-primary">Новая задача</button>
             <button id="logout-btn" class="btn-secondary">Выйти</button>
         </nav>
     </aside>
 
-    <!-- Основной контент -->
     <main class="board">
         <div class="column" data-status="backlog">
             <div class="column-header">
@@ -88,26 +86,7 @@
     </div>
 </div>
 
-<!-- Модальное окно создания команды -->
-<div id="team-modal-overlay" class="modal-overlay hidden">
-    <div class="modal">
-        <h3>Создать команду</h3>
-        <form id="create-team-form">
-            <label>Название команды</label>
-            <input type="text" id="team-name" required>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="allow-edit">
-                <span>Разрешить участникам создавать и редактировать задачи</span>
-            </label>
-            <div class="modal-actions">
-                <button type="submit">Создать</button>
-                <button type="button" id="close-team-modal">Отмена</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Модальное окно просмотра/редактирования задачи -->
+<!-- Модальное окно деталей задачи -->
 <div id="task-detail-overlay" class="modal-overlay hidden">
     <div class="modal">
         <h3 id="detail-title">Задача</h3>
@@ -132,9 +111,38 @@
             </select>
             <label>Срок выполнения</label>
             <input type="date" id="detail-task-due-date">
+            <label>Исполнитель</label>
+            <div id="assignee-container">
+                <span id="current-assignee-name" style="margin-right: 8px;">Не назначен</span>
+                <button type="button" id="self-assign-btn" class="btn-small">Взять на себя</button>
+                <button type="button" id="unassign-btn" class="btn-small hidden">Снять</button>
+                <div id="assign-others" style="display: none; margin-top: 4px;">
+                    <select id="assignee-select"></select>
+                    <button type="button" id="assign-btn" class="btn-small">Назначить</button>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button type="submit" id="detail-save-btn">Сохранить</button>
                 <button type="button" id="close-detail-modal">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно создания команды -->
+<div id="team-modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Создать команду</h3>
+        <form id="create-team-form">
+            <label>Название команды</label>
+            <input type="text" id="team-name" required>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="allow-edit">
+                <span>Разрешить участникам создавать и редактировать задачи</span>
+            </label>
+            <div class="modal-actions">
+                <button type="submit">Создать</button>
+                <button type="button" id="close-team-modal">Отмена</button>
             </div>
         </form>
     </div>

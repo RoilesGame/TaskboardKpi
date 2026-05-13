@@ -1,5 +1,6 @@
 const statuses = ['backlog', 'in_progress', 'review', 'done'];
-let currentToken = null;  // будет хранить токен
+let currentToken = null;
+let currentUserId = null;
 
 // ================== Утилиты ==================
 function showToast(message, type = 'error') {
@@ -40,6 +41,24 @@ function checkAuth() {
     return token;
 }
 
+function parseJwt(token) {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
+            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+}
+
+function getUserIdFromToken(token) {
+    const payload = parseJwt(token);
+    return payload ? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] : null;
+}
+
 // ================== Профиль ==================
 async function loadProfile() {
     try {
@@ -49,18 +68,16 @@ async function loadProfile() {
         if (!resp.ok) throw new Error('Ошибка профиля');
         const profile = await resp.json();
         document.getElementById('user-name').textContent = profile.fullName;
-        const avatar = document.getElementById('user-avatar');
-        avatar.textContent = profile.fullName.charAt(0).toUpperCase();
+        document.getElementById('user-avatar').textContent = profile.fullName.charAt(0).toUpperCase();
     } catch (e) {
         console.error('Не удалось загрузить профиль', e);
     }
 }
 
-// ================== Список команд ==================
+// ================== Команды ==================
 async function loadTeams() {
     const list = document.getElementById('teams-list');
     if (!list) return;
-
     try {
         const resp = await fetch('/api/teams/my', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -68,7 +85,6 @@ async function loadTeams() {
         if (!resp.ok) throw new Error('Не удалось загрузить команды');
         const teams = await resp.json();
 
-        // Определяем текущий teamId из токена
         const tokenData = parseJwt(currentToken);
         const currentTeamId = tokenData?.teamId;
 
@@ -88,7 +104,7 @@ async function loadTeams() {
                 </span>
             `;
             li.addEventListener('click', async () => {
-                if (team.id === currentTeamId) return; // уже выбрана
+                if (team.id === currentTeamId) return;
                 await switchTeam(team.id);
             });
             list.appendChild(li);
@@ -102,19 +118,6 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
-}
-
-function parseJwt(token) {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c =>
-            '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-        ).join(''));
-        return JSON.parse(jsonPayload);
-    } catch (e) {
-        return null;
-    }
 }
 
 async function switchTeam(teamId) {
@@ -131,14 +134,44 @@ async function switchTeam(teamId) {
         const data = await resp.json();
         localStorage.setItem('token', data.token);
         currentToken = data.token;
+        currentUserId = getUserIdFromToken(currentToken);
 
-        // Перезагружаем профиль, список команд и доску
         await loadProfile();
         await loadTeams();
+        await loadMembers();
         await loadBoard();
     } catch (err) {
         console.error(err);
         showToast('Ошибка при переключении команды');
+    }
+}
+
+// ================== Участники ==================
+async function loadMembers() {
+    const list = document.getElementById('members-list');
+    if (!list) return;
+    try {
+        const resp = await fetch('/api/teams/members', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!resp.ok) throw new Error('Ошибка загрузки участников');
+        const members = await resp.json();
+        list.innerHTML = '';
+        members.forEach(m => {
+            const li = document.createElement('li');
+            li.className = 'member-item';
+            const avatar = document.createElement('div');
+            avatar.className = 'member-avatar';
+            avatar.textContent = m.fullName.charAt(0).toUpperCase();
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'member-name';
+            nameSpan.textContent = m.fullName + (m.isOwner ? ' (владелец)' : '');
+            li.appendChild(avatar);
+            li.appendChild(nameSpan);
+            list.appendChild(li);
+        });
+    } catch (err) {
+        console.error(err);
     }
 }
 
@@ -150,10 +183,10 @@ async function loadBoard() {
         });
         if (!response.ok) throw new Error('Не авторизован');
         const board = await response.json();
-        renderColumn('backlog', board.backlog || board.Backlog || []);
-        renderColumn('in_progress', board.inProgress || board.InProgress || []);
-        renderColumn('review', board.review || board.Review || []);
-        renderColumn('done', board.done || board.Done || []);
+        renderColumn('backlog', board.backlog || []);
+        renderColumn('in_progress', board.inProgress || []);
+        renderColumn('review', board.review || []);
+        renderColumn('done', board.done || []);
     } catch (err) {
         console.error('Ошибка загрузки доски:', err);
         showToast('Ошибка загрузки доски');
@@ -172,32 +205,50 @@ function renderColumn(status, tasks) {
         card.className = 'task-card';
         card.dataset.id = task.id;
 
-        // Заголовок
-        const titleDiv = document.createElement('div');
-        titleDiv.className = 'task-title';
-        titleDiv.textContent = task.title;
-        card.appendChild(titleDiv);
+        // Строка 1: кружок + название
+        const topRow = document.createElement('div');
+        topRow.className = 'task-top-row';
 
-        // Строка с дедлайном и приоритетом
-        const metaDiv = document.createElement('div');
-        metaDiv.className = 'task-meta';
+        const dot = document.createElement('span');
+        dot.className = 'priority-dot ' + (task.priority || 'medium');
+        topRow.appendChild(dot);
 
-        const priorityDot = document.createElement('span');
-        priorityDot.className = 'priority-dot ' + (task.priority || 'medium');
-        metaDiv.appendChild(priorityDot);
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'task-title';
+        titleSpan.textContent = task.title;
+        topRow.appendChild(titleSpan);
 
+        card.appendChild(topRow);
+
+        // Строка 2: дедлайн
         if (task.dueDate) {
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'task-date';
+            const dateRow = document.createElement('div');
+            dateRow.className = 'task-date-row';
             const date = new Date(task.dueDate);
-            dateSpan.textContent = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-            metaDiv.appendChild(dateSpan);
+            dateRow.textContent = 'Срок: ' + date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+            card.appendChild(dateRow);
         }
 
-        card.appendChild(metaDiv);
+        // Строка 3: аватар + имя исполнителя (если назначен)
+        if (task.assigneeName) {
+            const assigneeRow = document.createElement('div');
+            assigneeRow.className = 'task-assignee-row';
+
+            const avatar = document.createElement('span');
+            avatar.className = 'task-assignee-avatar';
+            avatar.textContent = task.assigneeName.charAt(0).toUpperCase();
+            assigneeRow.appendChild(avatar);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = task.assigneeName;
+            assigneeRow.appendChild(nameSpan);
+
+            card.appendChild(assigneeRow);
+        }
+
         container.appendChild(card);
 
-        // Клик открывает детали задачи
+        // Клик для деталей
         card.addEventListener('click', () => {
             openTaskDetail(task.id);
         });
@@ -211,7 +262,6 @@ function initSortable() {
     statuses.forEach(status => {
         const el = document.getElementById(status);
         if (!el) return;
-        // Удаляем старые Sortable, если есть (чтобы не дублировались при переключении)
         if (el.sortable) el.sortable.destroy();
         el.sortable = new Sortable(el, {
             group: 'tasks',
@@ -236,7 +286,7 @@ function initSortable() {
     });
 }
 
-// ================== Модальное окно создания задачи ==================
+// ================== Создание задачи ==================
 function initCreateTaskModal() {
     const modal = document.getElementById('modal-overlay');
     const openBtn = document.getElementById('new-task-btn');
@@ -257,6 +307,7 @@ function initCreateTaskModal() {
         const description = document.getElementById('task-desc').value.trim();
         const priority = document.getElementById('task-priority').value;
         const dueDate = document.getElementById('task-due-date').value;
+
         if (!title) return;
 
         const res = await fetch('/api/tasks', {
@@ -265,12 +316,7 @@ function initCreateTaskModal() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
-            body: JSON.stringify({
-                title,
-                description,
-                priority,
-                dueDate: dueDate || null
-            })
+            body: JSON.stringify({ title, description, priority, dueDate: dueDate || null })
         });
 
         if (res.ok) {
@@ -285,20 +331,161 @@ function initCreateTaskModal() {
     });
 }
 
-// ================== Модальное окно создания новой доски ==================
+// ================== Детали задачи ==================
+let currentDetailTaskId = null;
+
+async function openTaskDetail(taskId) {
+    currentDetailTaskId = taskId;
+    const overlay = document.getElementById('task-detail-overlay');
+    if (!overlay) return;
+
+    try {
+        const [taskResp, membersResp] = await Promise.all([
+            fetch(`/api/tasks/${taskId}`, { headers: { 'Authorization': `Bearer ${currentToken}` } }),
+            fetch('/api/teams/members', { headers: { 'Authorization': `Bearer ${currentToken}` } })
+        ]);
+        if (!taskResp.ok || !membersResp.ok) throw new Error('Ошибка загрузки');
+        const task = await taskResp.json();
+        const members = await membersResp.json();
+
+        document.getElementById('detail-task-title').value = task.title || '';
+        document.getElementById('detail-task-desc').value = task.description || '';
+        document.getElementById('detail-task-priority').value = task.priority || 'medium';
+        document.getElementById('detail-task-status').value = task.status || 'backlog';
+        document.getElementById('detail-task-due-date').value = task.dueDate || '';
+
+        // Исполнитель
+        document.getElementById('current-assignee-name').textContent = task.assigneeName || 'Не назначен';
+        const selfAssignBtn = document.getElementById('self-assign-btn');
+        const unassignBtn = document.getElementById('unassign-btn');
+        const assignOthersDiv = document.getElementById('assign-others');
+        const assigneeSelect = document.getElementById('assignee-select');
+        const canEdit = task.canEdit;
+        const isSelf = (task.assigneeId === currentUserId);
+
+        selfAssignBtn.classList.toggle('hidden', isSelf);
+        unassignBtn.classList.toggle('hidden', !isSelf);
+
+        assigneeSelect.innerHTML = '';
+        members.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.fullName;
+            assigneeSelect.appendChild(opt);
+        });
+        if (task.assigneeId) assigneeSelect.value = task.assigneeId;
+
+        assignOthersDiv.style.display = canEdit ? 'block' : 'none';
+
+        document.getElementById('detail-save-btn').disabled = !canEdit;
+        overlay.classList.remove('hidden');
+    } catch (err) {
+        console.error(err);
+        showToast('Не удалось загрузить задачу');
+    }
+}
+
+function closeDetailAndReload() {
+    document.getElementById('task-detail-overlay').classList.add('hidden');
+    currentDetailTaskId = null;
+    loadBoard();
+}
+
+function initTaskDetailModal() {
+    const overlay = document.getElementById('task-detail-overlay');
+    const closeBtn = document.getElementById('close-detail-modal');
+    const form = document.getElementById('task-detail-form');
+
+    if (!overlay || !closeBtn || !form) return;
+
+    closeBtn.addEventListener('click', () => {
+        overlay.classList.add('hidden');
+        currentDetailTaskId = null;
+    });
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.classList.add('hidden');
+            currentDetailTaskId = null;
+        }
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentDetailTaskId) return;
+        const title = document.getElementById('detail-task-title').value.trim();
+        const description = document.getElementById('detail-task-desc').value.trim();
+        const priority = document.getElementById('detail-task-priority').value;
+        const status = document.getElementById('detail-task-status').value;
+        const dueDate = document.getElementById('detail-task-due-date').value;
+
+        const res = await fetch(`/api/tasks/${currentDetailTaskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ title, description, priority, status, dueDate: dueDate || null })
+        });
+
+        if (res.ok) {
+            overlay.classList.add('hidden');
+            currentDetailTaskId = null;
+            showToast('Задача обновлена', 'success');
+            loadBoard();
+        } else {
+            const err = await res.text();
+            showToast(err || 'Ошибка сохранения');
+        }
+    });
+
+    // Кнопки назначения
+    document.getElementById('self-assign-btn').addEventListener('click', async () => {
+        if (!currentDetailTaskId) return;
+        const res = await fetch(`/api/tasks/${currentDetailTaskId}/self-assign`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) { showToast('Задача взята на себя', 'success'); closeDetailAndReload(); }
+        else { const err = await res.text(); showToast(err || 'Ошибка'); }
+    });
+
+    document.getElementById('unassign-btn').addEventListener('click', async () => {
+        if (!currentDetailTaskId) return;
+        const res = await fetch(`/api/tasks/${currentDetailTaskId}/self-assign`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) { showToast('Назначение снято', 'success'); closeDetailAndReload(); }
+        else { const err = await res.text(); showToast(err || 'Ошибка'); }
+    });
+
+    document.getElementById('assign-btn').addEventListener('click', async () => {
+        if (!currentDetailTaskId) return;
+        const newAssigneeId = document.getElementById('assignee-select').value;
+        const res = await fetch(`/api/tasks/${currentDetailTaskId}/assign`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ assigneeId: newAssigneeId })
+        });
+        if (res.ok) { showToast('Исполнитель назначен', 'success'); closeDetailAndReload(); }
+        else { const err = await res.text(); showToast(err || 'Ошибка'); }
+    });
+}
+
+// ================== Создание команды ==================
 function initCreateTeamModal() {
     const modal = document.getElementById('team-modal-overlay');
     const openBtn = document.getElementById('create-team-btn');
     const closeBtn = document.getElementById('close-team-modal');
     const form = document.getElementById('create-team-form');
-
     if (!modal || !openBtn || !closeBtn || !form) return;
 
     openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-    });
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -319,12 +506,8 @@ function initCreateTeamModal() {
             modal.classList.add('hidden');
             form.reset();
             showToast('Команда создана', 'success');
-            await loadTeams(); // обновить список команд
-            // Опционально: автоматически переключиться на новую команду
             const newTeam = await res.json();
-            if (newTeam.id) {
-                await switchTeam(newTeam.id);
-            }
+            if (newTeam.id) await switchTeam(newTeam.id);
         } else {
             const err = await res.text();
             showToast(err || 'Ошибка создания команды');
@@ -343,108 +526,16 @@ function initLogout() {
     }
 }
 
-// ================== Детали задачи ==================
-let currentDetailTaskId = null;
-
-async function openTaskDetail(taskId) {
-    currentDetailTaskId = taskId;
-    const overlay = document.getElementById('task-detail-overlay');
-    const form = document.getElementById('task-detail-form');
-    if (!overlay || !form) return;
-
-    // Загружаем данные задачи
-    try {
-        const resp = await fetch(`/api/tasks/${taskId}`, {
-            headers: { 'Authorization': `Bearer ${currentToken}` }
-        });
-        if (!resp.ok) throw new Error('Ошибка загрузки задачи');
-        const task = await resp.json();
-
-        document.getElementById('detail-task-title').value = task.title || '';
-        document.getElementById('detail-task-desc').value = task.description || '';
-        document.getElementById('detail-task-priority').value = task.priority || 'medium';
-        document.getElementById('detail-task-status').value = task.status || 'backlog';
-        document.getElementById('detail-task-due-date').value = task.dueDate ? task.dueDate : '';
-
-        // Доступность кнопки сохранения
-        const saveBtn = document.getElementById('detail-save-btn');
-        if (saveBtn) saveBtn.disabled = !task.canEdit;
-
-        overlay.classList.remove('hidden');
-    } catch (err) {
-        console.error(err);
-        showToast('Не удалось загрузить задачу');
-    }
-}
-
-function initTaskDetailModal() {
-    const overlay = document.getElementById('task-detail-overlay');
-    const closeBtn = document.getElementById('close-detail-modal');
-    const form = document.getElementById('task-detail-form');
-
-    if (!overlay || !closeBtn || !form) return;
-
-    closeBtn.addEventListener('click', () => {
-        overlay.classList.add('hidden');
-        currentDetailTaskId = null;
-    });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            overlay.classList.add('hidden');
-            currentDetailTaskId = null;
-        }
-    });
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!currentDetailTaskId) return;
-
-        const title = document.getElementById('detail-task-title').value.trim();
-        const description = document.getElementById('detail-task-desc').value.trim();
-        const priority = document.getElementById('detail-task-priority').value;
-        const status = document.getElementById('detail-task-status').value;
-        const dueDate = document.getElementById('detail-task-due-date').value; // "" или дата
-
-        const res = await fetch(`/api/tasks/${currentDetailTaskId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken}`
-            },
-            body: JSON.stringify({
-                title,
-                description,
-                priority,
-                status,
-                dueDate: dueDate || null
-            })
-        });
-
-        if (res.ok) {
-            overlay.classList.add('hidden');
-            currentDetailTaskId = null;
-            showToast('Задача обновлена', 'success');
-            await loadBoard(); // перезагружаем доску
-        } else {
-            const err = await res.text();
-            showToast(err || 'Ошибка сохранения');
-        }
-    });
-}
-
 // ================== Старт ==================
 currentToken = checkAuth();
 if (currentToken) {
-    // Последовательная инициализация
-    loadProfile().then(() => {
-        return loadTeams();
-    }).then(() => {
+    currentUserId = getUserIdFromToken(currentToken);
+    loadProfile().then(() => loadTeams()).then(() => loadMembers()).then(() => {
         initLogout();
         initSortable();
         initCreateTaskModal();
+        initTaskDetailModal();
         initCreateTeamModal();
-        initTaskDetailModal()
         return loadBoard();
     }).catch(err => console.error(err));
 }
