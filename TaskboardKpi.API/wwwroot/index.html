@@ -78,6 +78,8 @@
                 <option value="high">Высокий</option>
                 <option value="critical">Критический</option>
             </select>
+            <label>Срок выполнения</label>
+            <input type="date" id="task-due-date">
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-modal">Отмена</button>
@@ -100,6 +102,39 @@
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-team-modal">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно просмотра/редактирования задачи -->
+<div id="task-detail-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <h3 id="detail-title">Задача</h3>
+        <form id="task-detail-form">
+            <label>Название</label>
+            <input type="text" id="detail-task-title" required>
+            <label>Описание</label>
+            <textarea id="detail-task-desc" rows="4"></textarea>
+            <label>Приоритет</label>
+            <select id="detail-task-priority">
+                <option value="low">Низкий</option>
+                <option value="medium" selected>Средний</option>
+                <option value="high">Высокий</option>
+                <option value="critical">Критический</option>
+            </select>
+            <label>Статус</label>
+            <select id="detail-task-status">
+                <option value="backlog">Бэклог</option>
+                <option value="in_progress">В работе</option>
+                <option value="review">Ревью</option>
+                <option value="done">Готово</option>
+            </select>
+            <label>Срок выполнения</label>
+            <input type="date" id="detail-task-due-date">
+            <div class="modal-actions">
+                <button type="submit" id="detail-save-btn">Сохранить</button>
+                <button type="button" id="close-detail-modal">Отмена</button>
             </div>
         </form>
     </div>

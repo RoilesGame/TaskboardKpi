@@ -14,6 +14,77 @@ public class TasksController : ControllerBase
 {
     private readonly AppDbContext _db;
     public TasksController(AppDbContext db) => _db = db;
+    
+    private async Task<bool> CanEditTask(Guid teamId, Guid userId)
+    {
+        var team = await _db.Teams.FindAsync(teamId);
+        if (team == null) return false;
+        return team.OwnerId == userId || team.AllowMemberEditing;
+    }
+    
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetTask(Guid id)
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+        var userId = Guid.Parse(userIdClaim.Value);
+
+        var task = await _db.Tasks
+            .Include(t => t.Assignee) // если нужно, но пока можно без
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null) return NotFound();
+
+        // Проверяем, что пользователь состоит в команде задачи
+        var isMember = await _db.TeamMembers.AnyAsync(tm => tm.TeamId == task.TeamId && tm.UserId == userId);
+        if (!isMember) return Forbid("Вы не участник этой команды");
+
+        // Определяем, можно ли редактировать
+        var canEdit = await CanEditTask(task.TeamId, userId);
+
+        return Ok(new
+        {
+            task.Id,
+            task.Title,
+            task.Description,
+            task.Status,
+            task.Priority,
+            task.DueDate,
+            task.TeamId,
+            task.CreatedBy,
+            task.AssigneeId,
+            canEdit
+        });
+    }
+    
+    // PUT api/tasks/{id}
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> UpdateTask(Guid id, [FromBody] UpdateTaskDto dto)
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+        var userId = Guid.Parse(userIdClaim.Value);
+
+        var task = await _db.Tasks.FindAsync(id);
+        if (task == null) return NotFound();
+
+        // Проверяем права на редактирование
+        if (!await CanEditTask(task.TeamId, userId))
+            return Forbid("Недостаточно прав для редактирования");
+
+        // Обновляем поля, если они переданы (не null)
+        if (dto.Title != null) task.Title = dto.Title;
+        if (dto.Description != null) task.Description = dto.Description;
+        if (dto.Status != null) task.Status = dto.Status;
+        if (dto.Priority != null) task.Priority = dto.Priority;
+        if (dto.DueDate != null) task.DueDate = dto.DueDate;
+        // assignee_id пока не трогаем, но можно добавить при необходимости
+
+        task.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Задача обновлена" });
+    }
 
     // GET api/tasks/board – teamId из токена
     [HttpGet("board")]
@@ -78,6 +149,7 @@ public class TasksController : ControllerBase
             Description = dto.Description,
             Status = dto.Status ?? "backlog",
             Priority = dto.Priority ?? "medium",
+            DueDate =  dto.DueDate,
             CreatedBy = userId,
             Position = await _db.Tasks.CountAsync(t => t.TeamId == teamId && t.Status == (dto.Status ?? "backlog"))
         };
@@ -102,4 +174,14 @@ public class CreateTaskDto
     public string? Description { get; set; }
     public string? Status { get; set; }
     public string? Priority { get; set; }
+    public DateOnly? DueDate { get; set; }
+}
+
+public class UpdateTaskDto
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? Status { get; set; }
+    public string? Priority { get; set; }
+    public DateOnly? DueDate { get; set; }
 }

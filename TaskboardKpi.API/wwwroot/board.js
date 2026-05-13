@@ -166,13 +166,43 @@ function renderColumn(status, tasks) {
     if (!container) return;
     container.innerHTML = '';
     const arr = Array.isArray(tasks) ? tasks : [];
+
     arr.forEach(task => {
         const card = document.createElement('div');
         card.className = 'task-card';
         card.dataset.id = task.id;
-        card.textContent = task.title;
+
+        // Заголовок
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'task-title';
+        titleDiv.textContent = task.title;
+        card.appendChild(titleDiv);
+
+        // Строка с дедлайном и приоритетом
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'task-meta';
+
+        const priorityDot = document.createElement('span');
+        priorityDot.className = 'priority-dot ' + (task.priority || 'medium');
+        metaDiv.appendChild(priorityDot);
+
+        if (task.dueDate) {
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'task-date';
+            const date = new Date(task.dueDate);
+            dateSpan.textContent = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+            metaDiv.appendChild(dateSpan);
+        }
+
+        card.appendChild(metaDiv);
         container.appendChild(card);
+
+        // Клик открывает детали задачи
+        card.addEventListener('click', () => {
+            openTaskDetail(task.id);
+        });
     });
+
     if (countSpan) countSpan.textContent = arr.length;
 }
 
@@ -226,6 +256,7 @@ function initCreateTaskModal() {
         const title = document.getElementById('task-title').value.trim();
         const description = document.getElementById('task-desc').value.trim();
         const priority = document.getElementById('task-priority').value;
+        const dueDate = document.getElementById('task-due-date').value;
         if (!title) return;
 
         const res = await fetch('/api/tasks', {
@@ -234,7 +265,12 @@ function initCreateTaskModal() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
-            body: JSON.stringify({ title, description, priority })
+            body: JSON.stringify({
+                title,
+                description,
+                priority,
+                dueDate: dueDate || null
+            })
         });
 
         if (res.ok) {
@@ -307,6 +343,96 @@ function initLogout() {
     }
 }
 
+// ================== Детали задачи ==================
+let currentDetailTaskId = null;
+
+async function openTaskDetail(taskId) {
+    currentDetailTaskId = taskId;
+    const overlay = document.getElementById('task-detail-overlay');
+    const form = document.getElementById('task-detail-form');
+    if (!overlay || !form) return;
+
+    // Загружаем данные задачи
+    try {
+        const resp = await fetch(`/api/tasks/${taskId}`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (!resp.ok) throw new Error('Ошибка загрузки задачи');
+        const task = await resp.json();
+
+        document.getElementById('detail-task-title').value = task.title || '';
+        document.getElementById('detail-task-desc').value = task.description || '';
+        document.getElementById('detail-task-priority').value = task.priority || 'medium';
+        document.getElementById('detail-task-status').value = task.status || 'backlog';
+        document.getElementById('detail-task-due-date').value = task.dueDate ? task.dueDate : '';
+
+        // Доступность кнопки сохранения
+        const saveBtn = document.getElementById('detail-save-btn');
+        if (saveBtn) saveBtn.disabled = !task.canEdit;
+
+        overlay.classList.remove('hidden');
+    } catch (err) {
+        console.error(err);
+        showToast('Не удалось загрузить задачу');
+    }
+}
+
+function initTaskDetailModal() {
+    const overlay = document.getElementById('task-detail-overlay');
+    const closeBtn = document.getElementById('close-detail-modal');
+    const form = document.getElementById('task-detail-form');
+
+    if (!overlay || !closeBtn || !form) return;
+
+    closeBtn.addEventListener('click', () => {
+        overlay.classList.add('hidden');
+        currentDetailTaskId = null;
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.classList.add('hidden');
+            currentDetailTaskId = null;
+        }
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentDetailTaskId) return;
+
+        const title = document.getElementById('detail-task-title').value.trim();
+        const description = document.getElementById('detail-task-desc').value.trim();
+        const priority = document.getElementById('detail-task-priority').value;
+        const status = document.getElementById('detail-task-status').value;
+        const dueDate = document.getElementById('detail-task-due-date').value; // "" или дата
+
+        const res = await fetch(`/api/tasks/${currentDetailTaskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({
+                title,
+                description,
+                priority,
+                status,
+                dueDate: dueDate || null
+            })
+        });
+
+        if (res.ok) {
+            overlay.classList.add('hidden');
+            currentDetailTaskId = null;
+            showToast('Задача обновлена', 'success');
+            await loadBoard(); // перезагружаем доску
+        } else {
+            const err = await res.text();
+            showToast(err || 'Ошибка сохранения');
+        }
+    });
+}
+
 // ================== Старт ==================
 currentToken = checkAuth();
 if (currentToken) {
@@ -318,6 +444,7 @@ if (currentToken) {
         initSortable();
         initCreateTaskModal();
         initCreateTeamModal();
+        initTaskDetailModal()
         return loadBoard();
     }).catch(err => console.error(err));
 }
