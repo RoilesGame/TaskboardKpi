@@ -7,53 +7,77 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="header">
-    <div>
-        <h1>Моя компания</h1>
-        <span class="subtitle">Канбан-доска</span>
-    </div>
-    <button id="logout-btn" style="background: transparent; border: 1px solid #d1d5db; padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px;">Выйти</button>
-</header>
+<div class="layout">
+    <!-- Боковая панель -->
+    <aside class="sidebar">
+        <div class="profile">
+            <div class="avatar" id="user-avatar">?</div>
+            <span class="user-name" id="user-name">Загрузка...</span>
+        </div>
+        <nav class="sidebar-actions">
+            <button id="new-task-btn" class="btn-primary">Новая задача</button>
+            <button id="logout-btn" class="btn-secondary">Выйти</button>
+        </nav>
+    </aside>
 
-<main class="board">
-    <div class="column" data-status="backlog">
-        <div class="column-header">
-            <h2>Бэклог</h2>
-            <span class="task-count" id="backlog-count">0</span>
+    <!-- Основной контент -->
+    <main class="board">
+        <div class="column" data-status="backlog">
+            <div class="column-header">
+                <h2>Бэклог</h2>
+                <span class="task-count" id="backlog-count">0</span>
+            </div>
+            <div class="task-list" id="backlog"></div>
         </div>
-        <div class="task-list" id="backlog"></div>
-    </div>
-    <div class="column" data-status="in_progress">
-        <div class="column-header">
-            <h2>В работе</h2>
-            <span class="task-count" id="in_progress-count">0</span>
+        <div class="column" data-status="in_progress">
+            <div class="column-header">
+                <h2>В работе</h2>
+                <span class="task-count" id="in_progress-count">0</span>
+            </div>
+            <div class="task-list" id="in_progress"></div>
         </div>
-        <div class="task-list" id="in_progress"></div>
-    </div>
-    <div class="column" data-status="review">
-        <div class="column-header">
-            <h2>Ревью</h2>
-            <span class="task-count" id="review-count">0</span>
+        <div class="column" data-status="review">
+            <div class="column-header">
+                <h2>Ревью</h2>
+                <span class="task-count" id="review-count">0</span>
+            </div>
+            <div class="task-list" id="review"></div>
         </div>
-        <div class="task-list" id="review"></div>
-    </div>
-    <div class="column" data-status="done">
-        <div class="column-header">
-            <h2>Готово</h2>
-            <span class="task-count" id="done-count">0</span>
+        <div class="column" data-status="done">
+            <div class="column-header">
+                <h2>Готово</h2>
+                <span class="task-count" id="done-count">0</span>
+            </div>
+            <div class="task-list" id="done"></div>
         </div>
-        <div class="task-list" id="done"></div>
+    </main>
+</div>
+
+<!-- Модальное окно создания задачи -->
+<div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Новая задача</h3>
+        <form id="create-task-form">
+            <label>Название</label>
+            <input type="text" id="task-title" required>
+            <label>Описание</label>
+            <textarea id="task-desc" rows="3"></textarea>
+            <label>Приоритет</label>
+            <select id="task-priority">
+                <option value="low">Низкий</option>
+                <option value="medium" selected>Средний</option>
+                <option value="high">Высокий</option>
+                <option value="critical">Критический</option>
+            </select>
+            <div class="modal-actions">
+                <button type="submit">Создать</button>
+                <button type="button" id="close-modal">Отмена</button>
+            </div>
+        </form>
     </div>
-</main>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="board.js"></script>
-<script>
-    // Кнопка выхода
-    document.getElementById('logout-btn').addEventListener('click', () => {
-        localStorage.removeItem('token');
-        window.location.href = '/login.html';
-    });
-</script>
 </body>
 </html>

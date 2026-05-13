@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TaskboardKpi.API.Data;
 using TaskboardKpi.API.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace TaskboardKpi.API.Controllers;
 
@@ -106,6 +107,26 @@ public class AuthController : ControllerBase
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+    
+    // Внутри класса AuthController
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetProfile()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+
+        var userId = Guid.Parse(userIdClaim.Value);
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        return Ok(new
+        {
+            fullName = user.FullName,
+            email = user.Email,
+            avatarUrl = user.AvatarUrl // может быть null
+        });
     }
 }
 

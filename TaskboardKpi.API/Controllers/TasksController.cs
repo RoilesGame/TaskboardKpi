@@ -13,16 +13,16 @@ public class TasksController : ControllerBase
     private readonly AppDbContext _db;
     public TasksController(AppDbContext db) => _db = db;
 
-    // GET api/tasks/board – companyId берётся из токена
+    // GET api/tasks/board – teamId из токена
     [HttpGet("board")]
     public async Task<IActionResult> GetBoard()
     {
-        var companyIdClaim = User.Claims.FirstOrDefault(c => c.Type == "companyId");
-        if (companyIdClaim == null) return Unauthorized();
-        var companyId = Guid.Parse(companyIdClaim.Value);
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (teamIdClaim == null) return Unauthorized();
+        var teamId = Guid.Parse(teamIdClaim.Value);
 
         var tasks = await _db.Tasks
-            .Where(t => t.CompanyId == companyId)
+            .Where(t => t.TeamId == teamId)
             .OrderBy(t => t.Status)
             .ThenBy(t => t.Position)
             .ToListAsync();
@@ -53,7 +53,6 @@ public class TasksController : ControllerBase
     }
 }
 
-// DTO
 public class MoveTaskDto
 {
     public string NewStatus { get; set; } = string.Empty;
