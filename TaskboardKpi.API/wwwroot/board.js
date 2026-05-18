@@ -1,3 +1,15 @@
+const API_BASE = window.API_BASE_URL || '';
+function api(path, options = {}) {
+    return fetch(API_BASE + path, options).then(resp => {
+        if (resp.status === 401){
+            local.removeItem('token');
+            window.location.href = '/login.html';
+            throw new Error('Unauthorized');
+        }
+        return resp;
+    });
+}
+
 const statuses = ['backlog', 'in_progress', 'review', 'done'];
 let currentToken = null;
 let currentUserId = null;
@@ -38,6 +50,18 @@ function checkAuth() {
         window.location.href = '/login.html';
         return null;
     }
+
+    // Проверяем срок действия токена
+    const payload = parseJwt(token);
+    if (payload && payload.exp) {
+        const expiry = payload.exp * 1000; // в миллисекунды
+        if (Date.now() > expiry) {
+            // Токен истёк
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return null;
+        }
+    }
     return token;
 }
 
@@ -62,7 +86,7 @@ function getUserIdFromToken(token) {
 // ================== Профиль ==================
 async function loadProfile() {
     try {
-        const resp = await fetch('/api/auth/me', {
+        const resp = await api('/api/auth/me', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!resp.ok) throw new Error('Ошибка профиля');
@@ -79,7 +103,7 @@ async function loadTeams() {
     const list = document.getElementById('teams-list');
     if (!list) return;
     try {
-        const resp = await fetch('/api/teams/my', {
+        const resp = await api('/api/teams/my', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!resp.ok) throw new Error('Не удалось загрузить команды');
@@ -95,14 +119,17 @@ async function loadTeams() {
             if (team.id === currentTeamId) li.classList.add('active');
 
             li.innerHTML = `
-                <div style="display: flex; flex-direction: column;">
-                    <span>${escapeHtml(team.name)}</span>
-                    ${team.isOwner ? '' : `<span class="team-owner">Владелец: ${escapeHtml(team.ownerName)}</span>`}
+                <div style="display: flex; flex-direction: column; width: 100%;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>${escapeHtml(team.name)}</span>
+                        <span class="team-badge ${team.isOwner ? 'owner' : 'member'}">
+                            ${team.isOwner ? 'Админ' : 'Участник'}
+                        </span>
+                    </div>
+                    ${team.isOwner ? '' : `<span class="team-owner" style="font-size:12px;color:#6b7280;">Владелец: ${escapeHtml(team.ownerName)}</span>`}
                 </div>
-                <span class="team-badge ${team.isOwner ? 'owner' : 'member'}">
-                    ${team.isOwner ? 'Админ' : 'Участник'}
-                </span>
             `;
+
             li.addEventListener('click', async () => {
                 if (team.id === currentTeamId) return;
                 await switchTeam(team.id);
@@ -114,6 +141,26 @@ async function loadTeams() {
     }
 }
 
+
+function initCopyTeamIdButton() {
+    const btn = document.getElementById('copy-team-id-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        // Получаем teamId из текущего токена
+        const tokenData = parseJwt(currentToken);
+        const teamId = tokenData?.teamId;
+        if (!teamId) {
+            showToast('Не удалось получить ID команды');
+            return;
+        }
+        navigator.clipboard.writeText(teamId).then(() => {
+            showToast('ID команды скопирован', 'success');
+        }).catch(() => {
+            prompt('ID команды:', teamId);
+        });
+    });
+}
+
 function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
@@ -122,7 +169,7 @@ function escapeHtml(str) {
 
 async function switchTeam(teamId) {
     try {
-        const resp = await fetch('/api/auth/switch-team', {
+        const resp = await api('/api/auth/switch-team', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -151,7 +198,7 @@ async function loadMembers() {
     const list = document.getElementById('members-list');
     if (!list) return;
     try {
-        const resp = await fetch('/api/teams/members', {
+        const resp = await api('/api/teams/members', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!resp.ok) throw new Error('Ошибка загрузки участников');
@@ -178,7 +225,7 @@ async function loadMembers() {
 // ================== Доска ==================
 async function loadBoard() {
     try {
-        const response = await fetch('/api/tasks/board', {
+        const response = await api('/api/tasks/board', {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         if (!response.ok) throw new Error('Не авторизован');
@@ -205,7 +252,6 @@ function renderColumn(status, tasks) {
         card.className = 'task-card';
         card.dataset.id = task.id;
 
-        // Строка 1: кружок + название
         const topRow = document.createElement('div');
         topRow.className = 'task-top-row';
 
@@ -217,10 +263,8 @@ function renderColumn(status, tasks) {
         titleSpan.className = 'task-title';
         titleSpan.textContent = task.title;
         topRow.appendChild(titleSpan);
-
         card.appendChild(topRow);
 
-        // Строка 2: дедлайн
         if (task.dueDate) {
             const dateRow = document.createElement('div');
             dateRow.className = 'task-date-row';
@@ -229,7 +273,6 @@ function renderColumn(status, tasks) {
             card.appendChild(dateRow);
         }
 
-        // Строка 3: аватар + имя исполнителя (если назначен)
         if (task.assigneeName) {
             const assigneeRow = document.createElement('div');
             assigneeRow.className = 'task-assignee-row';
@@ -248,7 +291,6 @@ function renderColumn(status, tasks) {
 
         container.appendChild(card);
 
-        // Клик для деталей
         card.addEventListener('click', () => {
             openTaskDetail(task.id);
         });
@@ -272,7 +314,7 @@ function initSortable() {
                 const newStatus = col ? col.dataset.status : null;
                 const newPosition = Array.from(evt.to.children).indexOf(evt.item);
                 if (newStatus && taskId) {
-                    await fetch(`/api/tasks/move/${taskId}`, {
+                    await api(`/api/tasks/move/${taskId}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
@@ -310,7 +352,7 @@ function initCreateTaskModal() {
 
         if (!title) return;
 
-        const res = await fetch('/api/tasks', {
+        const res = await api('/api/tasks', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -341,8 +383,8 @@ async function openTaskDetail(taskId) {
 
     try {
         const [taskResp, membersResp] = await Promise.all([
-            fetch(`/api/tasks/${taskId}`, { headers: { 'Authorization': `Bearer ${currentToken}` } }),
-            fetch('/api/teams/members', { headers: { 'Authorization': `Bearer ${currentToken}` } })
+            api(`/api/tasks/${taskId}`, { headers: { 'Authorization': `Bearer ${currentToken}` } }),
+            api('/api/teams/members', { headers: { 'Authorization': `Bearer ${currentToken}` } })
         ]);
         if (!taskResp.ok || !membersResp.ok) throw new Error('Ошибка загрузки');
         const task = await taskResp.json();
@@ -418,7 +460,7 @@ function initTaskDetailModal() {
         const status = document.getElementById('detail-task-status').value;
         const dueDate = document.getElementById('detail-task-due-date').value;
 
-        const res = await fetch(`/api/tasks/${currentDetailTaskId}`, {
+        const res = await api(`/api/tasks/${currentDetailTaskId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -441,7 +483,7 @@ function initTaskDetailModal() {
     // Кнопки назначения
     document.getElementById('self-assign-btn').addEventListener('click', async () => {
         if (!currentDetailTaskId) return;
-        const res = await fetch(`/api/tasks/${currentDetailTaskId}/self-assign`, {
+        const res = await api(`/api/tasks/${currentDetailTaskId}/self-assign`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
@@ -451,7 +493,7 @@ function initTaskDetailModal() {
 
     document.getElementById('unassign-btn').addEventListener('click', async () => {
         if (!currentDetailTaskId) return;
-        const res = await fetch(`/api/tasks/${currentDetailTaskId}/self-assign`, {
+        const res = await api(`/api/tasks/${currentDetailTaskId}/self-assign`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
@@ -462,7 +504,7 @@ function initTaskDetailModal() {
     document.getElementById('assign-btn').addEventListener('click', async () => {
         if (!currentDetailTaskId) return;
         const newAssigneeId = document.getElementById('assignee-select').value;
-        const res = await fetch(`/api/tasks/${currentDetailTaskId}/assign`, {
+        const res = await api(`/api/tasks/${currentDetailTaskId}/assign`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -491,15 +533,16 @@ function initCreateTeamModal() {
         e.preventDefault();
         const name = document.getElementById('team-name').value.trim();
         const allowEdit = document.getElementById('allow-edit').checked;
+        const allowInvites = document.getElementById('allow-invites').checked;
         if (!name) return;
 
-        const res = await fetch('/api/teams', {
+        const res = await api('/api/teams', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
-            body: JSON.stringify({ name, allowMemberEditing: allowEdit })
+            body: JSON.stringify({ name, allowMemberEditing: allowEdit, allowMemberInvites: allowInvites })
         });
 
         if (res.ok) {
@@ -511,6 +554,42 @@ function initCreateTeamModal() {
         } else {
             const err = await res.text();
             showToast(err || 'Ошибка создания команды');
+        }
+    });
+}
+
+// ================== Присоединение к команде ==================
+function initJoinTeamModal() {
+    const modal = document.getElementById('join-modal-overlay');
+    const openBtn = document.getElementById('join-team-btn');
+    const closeBtn = document.getElementById('close-join-modal');
+    const form = document.getElementById('join-team-form');
+
+    if (!modal || !openBtn || !closeBtn || !form) return;
+
+    openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const teamId = document.getElementById('join-team-id-input').value.trim();
+        if (!teamId) return;
+
+        const res = await api(`/api/teams/${teamId}/join`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (res.ok) {
+            modal.classList.add('hidden');
+            form.reset();
+            showToast('Вы присоединились к команде', 'success');
+            await loadTeams();
+            await loadMembers();
+            await loadBoard();
+        } else {
+            const err = await res.text();
+            showToast(err || 'Ошибка');
         }
     });
 }
@@ -536,6 +615,8 @@ if (currentToken) {
         initCreateTaskModal();
         initTaskDetailModal();
         initCreateTeamModal();
+        initJoinTeamModal();
+        initCopyTeamIdButton();
         return loadBoard();
     }).catch(err => console.error(err));
 }

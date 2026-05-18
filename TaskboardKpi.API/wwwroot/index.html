@@ -18,10 +18,19 @@
             <ul id="teams-list" class="teams-list"></ul>
         </div>
         <button id="create-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">+ Создать команду</button>
+
+        <div id="invite-container" style="margin-bottom: 8px; display: none;">
+            <button id="invite-btn" class="btn-secondary" style="width:100%;">📎 Пригласить участника</button>
+        </div>
+        
         <div class="members-section">
             <h3>Участники</h3>
             <ul id="members-list" class="members-list"></ul>
         </div>
+
+        <button id="join-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">Присоединиться</button>
+        <button id="copy-team-id-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">Копировать ID команды</button>
+        
         <nav class="sidebar-actions">
             <button id="new-task-btn" class="btn-primary">Новая задача</button>
             <button id="logout-btn" class="btn-secondary">Выйти</button>
@@ -140,9 +149,31 @@
                 <input type="checkbox" id="allow-edit">
                 <span>Разрешить участникам создавать и редактировать задачи</span>
             </label>
+
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="allow-invites">
+                <span>Участники могут приглашать других</span>
+            </label>
+            
+            
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-team-modal">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно: присоединиться к команде по ID -->
+<div id="join-modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+        <h3>Присоединиться к команде</h3>
+        <form id="join-team-form">
+            <label>Введите ID команды</label>
+            <input type="text" id="join-team-id-input" required placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+            <div class="modal-actions">
+                <button type="submit">Присоединиться</button>
+                <button type="button" id="close-join-modal">Отмена</button>
             </div>
         </form>
     </div>

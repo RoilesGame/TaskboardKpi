@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приглашение в команду</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="display:flex; align-items:center; justify-content:center; height:100vh; background:#f4f5f7;">
+<div class="auth-card" style="max-width:400px; width:100%;">
+    <h1>Приглашение в команду</h1>
+    <p id="invite-status">Проверка ссылки...</p>
+    <button id="join-btn" style="display:none;">Присоединиться</button>
+    <p><a href="index.html">На главную</a></p>
+</div>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite');
+    const statusEl = document.getElementById('invite-status');
+    const joinBtn = document.getElementById('join-btn');
+
+    if (!token) {
+        statusEl.textContent = 'Неверная ссылка.';
+    } else {
+        const authToken = localStorage.getItem('token');
+        if (!authToken) {
+            statusEl.innerHTML = 'Необходимо <a href="login.html">войти</a> или <a href="register.html">зарегистрироваться</a>.';
+        } else {
+            statusEl.textContent = 'Нажмите кнопку, чтобы присоединиться.';
+            joinBtn.style.display = 'block';
+            joinBtn.addEventListener('click', async () => {
+                joinBtn.disabled = true;
+                const resp = await fetch(`/api/teams/join-by-invite/${token}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (resp.ok) {
+                    statusEl.textContent = 'Вы присоединились к команде!';
+                    joinBtn.style.display = 'none';
+                    setTimeout(() => { window.location.href = 'index.html'; }, 1500);
+                } else {
+                    const err = await resp.text();
+                    statusEl.textContent = err || 'Ошибка';
+                    joinBtn.disabled = false;
+                }
+            });
+        }
+    }
+</script>
+</body>
+</html>

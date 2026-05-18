@@ -461,3 +461,11 @@ body {
 .btn-small:hover {
     background: #f3f4f6;
 }
+
+.btn-copy-id {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+.btn-copy-id:hover {
+    opacity: 1;
+}
