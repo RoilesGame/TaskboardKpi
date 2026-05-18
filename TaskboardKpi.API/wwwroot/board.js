@@ -594,6 +594,132 @@ function initJoinTeamModal() {
     });
 }
 
+function initCalendar() {
+    const modal = document.getElementById('calendar-modal-overlay');
+    const openBtn = document.getElementById('calendar-btn');
+    const closeBtn = document.getElementById('close-calendar-modal');
+    if (!modal || !openBtn || !closeBtn) return;
+
+    openBtn.addEventListener('click', async () => {
+        modal.classList.remove('hidden');
+
+        // Загружаем задачи пользователя
+        const tasksResp = await api('/api/tasks/my', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const tasks = tasksResp.ok ? await tasksResp.json() : [];
+
+        // Преобразуем задачи в события FullCalendar
+        const events = tasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            start: task.dueDate,
+            allDay: true,
+            extendedProps: {
+                status: task.status,
+                priority: task.priority
+            }
+        }));
+
+        const container = document.getElementById('calendar-container');
+        // Уничтожаем предыдущий экземпляр календаря, если есть
+        if (container._calendar) {
+            container._calendar.destroy();
+        }
+
+        // Инициализируем календарь
+        const calendar = new FullCalendar.Calendar(container, {
+            initialView: 'dayGridMonth',
+            locale: 'ru',
+            events: events,
+            eventDisplay: 'block',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,dayGridWeek'
+            },
+            buttonText: {
+                today: 'Сегодня',
+                month: 'Месяц',
+                week: 'Неделя'
+            },
+            eventClick: function(info) {
+                // При клике на задачу открываем её детали
+                openTaskDetail(info.event.id);
+                modal.classList.add('hidden'); // закрываем календарь, чтобы редактировать
+            },
+            eventColor: '#6366f1',
+            eventContent: function(arg) {
+                const priority = arg.event.extendedProps.priority || 'medium';
+                const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+                const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[priority] || '#6366f1'};margin-right:4px;"></span>`;
+                return { html: dot + arg.event.title };
+            }
+        });
+        calendar.render();
+        container._calendar = calendar;
+    });
+
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+}
+
+function initLeaveTeam() {
+    const openBtn = document.getElementById('leave-team-btn');
+    const overlay = document.getElementById('confirm-leave-overlay');
+    const confirmBtn = document.getElementById('confirm-leave-btn');
+    const cancelBtn = document.getElementById('cancel-leave-btn');
+
+    if (!openBtn || !overlay || !confirmBtn || !cancelBtn) return;
+
+    openBtn.addEventListener('click', () => {
+        overlay.classList.remove('hidden');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        overlay.classList.add('hidden');
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.add('hidden');
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+        const res = await api('/api/teams/leave', {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+
+        if (res.ok) {
+            overlay.classList.add('hidden');
+            showToast('Вы покинули команду', 'success');
+            // Переключиться на другую команду или перезагрузить список команд
+            const teamsResp = await api('/api/teams/my', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            if (teamsResp.ok) {
+                const teams = await teamsResp.json();
+                if (teams.length > 0) {
+                    await switchTeam(teams[0].id);
+                } else {
+                    // Если команд не осталось, перенаправим на создание команды или покажем ошибку
+                    showToast('У вас не осталось команд. Создайте новую.', 'error');
+                    // можно перенаправить на создание или обновить интерфейс
+                    loadTeams();
+                }
+            }
+        } else {
+            const err = await res.text();
+            showToast(err || 'Ошибка при выходе из команды');
+            overlay.classList.add('hidden');
+        }
+    });
+}
+
 // ================== Выход ==================
 function initLogout() {
     const btn = document.getElementById('logout-btn');
@@ -616,7 +742,9 @@ if (currentToken) {
         initTaskDetailModal();
         initCreateTeamModal();
         initJoinTeamModal();
+        initLeaveTeam();
         initCopyTeamIdButton();
+        initCalendar();
         return loadBoard();
     }).catch(err => console.error(err));
 }

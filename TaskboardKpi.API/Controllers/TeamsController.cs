@@ -35,6 +35,33 @@ public class TeamsController : ControllerBase
         return Ok(new { message = "Вы присоединились к команде", teamId = team.Id });
     }
     
+    // DELETE api/teams/leave
+    [HttpDelete("leave")]
+    public async Task<IActionResult> LeaveTeam()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (userIdClaim == null || teamIdClaim == null) return Unauthorized();
+    
+        var userId = Guid.Parse(userIdClaim.Value);
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var team = await _db.Teams.FindAsync(teamId);
+        if (team == null) return NotFound("Команда не найдена");
+
+        // Владелец не может покинуть команду
+        if (team.OwnerId == userId)
+            return BadRequest("Владелец не может покинуть команду. Сначала передайте владение или удалите команду.");
+
+        var membership = await _db.TeamMembers.FirstOrDefaultAsync(tm => tm.TeamId == teamId && tm.UserId == userId);
+        if (membership == null) return BadRequest("Вы не состоите в этой команде");
+
+        _db.TeamMembers.Remove(membership);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Вы покинули команду" });
+    }
+    
     // POST api/teams/invite-link
     [HttpPost("invite-link")]
     public async Task<IActionResult> GenerateInviteLink()

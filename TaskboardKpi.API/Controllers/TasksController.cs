@@ -21,6 +21,30 @@ public class TasksController : ControllerBase
         if (team == null) return false;
         return team.OwnerId == userId || team.AllowMemberEditing;
     }
+    
+    // GET api/tasks/my
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyTasks()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+        var userId = Guid.Parse(userIdClaim.Value);
+
+        var tasks = await _db.Tasks
+            .Where(t => t.AssigneeId == userId && t.DueDate != null)
+            .OrderBy(t => t.DueDate)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.DueDate,
+                t.Status,
+                t.Priority
+            })
+            .ToListAsync();
+
+        return Ok(tasks);
+    }
 
     // GET api/tasks/board
     [HttpGet("board")]

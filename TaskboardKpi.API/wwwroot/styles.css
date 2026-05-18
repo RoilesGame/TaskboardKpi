@@ -71,6 +71,13 @@ body {
     gap: 8px;
 }
 
+.sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
 .btn-primary {
     background: #6366f1;
     color: white;
@@ -520,6 +527,13 @@ body {
     font-size: 16px;
     margin-left: 12px;
     line-height: 1;
+}
+
+#calendar-container {
+    background: white;
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 16px;
 }
 
 @keyframes slideIn {

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таскборд</title>
@@ -13,28 +14,32 @@
             <div class="avatar" id="user-avatar">?</div>
             <span class="user-name" id="user-name">Загрузка...</span>
         </div>
+
         <div class="teams-section">
             <h3>Команды</h3>
             <ul id="teams-list" class="teams-list"></ul>
         </div>
-        <button id="create-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">+ Создать команду</button>
 
-        <div id="invite-container" style="margin-bottom: 8px; display: none;">
-            <button id="invite-btn" class="btn-secondary" style="width:100%;">📎 Пригласить участника</button>
+        <!-- Группа 1: календарь, новая задача, копировать ID -->
+        <div class="sidebar-group">
+            <button id="calendar-btn" class="btn-secondary" style="width:100%;">Мой календарь</button>
+            <button id="new-task-btn" class="btn-primary" style="width:100%;">Новая задача</button>
+            <button id="copy-team-id-btn" class="btn-secondary" style="width:100%;">Копировать ID команды</button>
+            <button id="leave-team-btn" class="btn-secondary" style="width:100%;">Покинуть команду</button>
         </div>
-        
+
+        <!-- Список участников -->
         <div class="members-section">
             <h3>Участники</h3>
             <ul id="members-list" class="members-list"></ul>
         </div>
 
-        <button id="join-team-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">Присоединиться</button>
-        <button id="copy-team-id-btn" class="btn-secondary" style="width:100%; margin-bottom:8px;">Копировать ID команды</button>
-        
-        <nav class="sidebar-actions">
-            <button id="new-task-btn" class="btn-primary">Новая задача</button>
-            <button id="logout-btn" class="btn-secondary">Выйти</button>
-        </nav>
+        <!-- Группа 2: создание, присоединение, выход -->
+        <div class="sidebar-group" style="margin-top: auto;">
+            <button id="create-team-btn" class="btn-secondary" style="width:100%;">+ Создать команду</button>
+            <button id="join-team-btn" class="btn-secondary" style="width:100%;">Присоединиться</button>
+            <button id="logout-btn" class="btn-secondary" style="width:100%;">Выйти</button>
+        </div>
     </aside>
 
     <main class="board">
@@ -179,7 +184,29 @@
     </div>
 </div>
 
+<div id="calendar-modal-overlay" class="modal-overlay hidden">
+    <div class="modal" style="width: 90vw; max-width: 900px;">
+        <h3>Мой календарь</h3>
+        <div id="calendar-container"></div>
+        <div class="modal-actions">
+            <button type="button" id="close-calendar-modal">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<div id="confirm-leave-overlay" class="modal-overlay hidden">
+    <div class="modal" style="max-width: 400px;">
+        <h3>Покинуть команду?</h3>
+        <p style="margin: 16px 0; color: #4b5563;">Вы уверены, что хотите покинуть текущую команду? Это действие нельзя отменить.</p>
+        <div class="modal-actions">
+            <button type="button" id="confirm-leave-btn" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Покинуть</button>
+            <button type="button" id="cancel-leave-btn" style="background:transparent; border:1px solid #d1d5db; color:#4b5563; padding:8px 16px; border-radius:8px; cursor:pointer;">Отмена</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="board.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 </body>
 </html>
