@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таскборд</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="calendar.css">
+    <link rel="stylesheet" href="gantt.css">
 </head>
 <body>
 <div class="layout">
@@ -19,10 +21,8 @@
             <ul id="teams-list" class="teams-list"></ul>
         </div>
 
-        <!-- Группа 1: календарь, новая задача, копировать ID -->
+        <!-- Группа 1: копировать ID, новая задача (календарь и Ганта теперь вкладками) -->
         <div class="sidebar-group">
-            <button id="calendar-btn" class="btn-secondary" style="width:100%;">Мой календарь</button>
-            <button id="gantt-btn" class="btn-secondary" style="width:100%;">📊 Диаграмма Ганта</button>
             <button id="new-task-btn" class="btn-primary" style="width:100%;">Новая задача</button>
             <button id="copy-team-id-btn" class="btn-secondary" style="width:100%;">Копировать ID команды</button>
             <button id="leave-team-btn" class="btn-secondary" style="width:100%;">Покинуть команду</button>
@@ -42,36 +42,54 @@
         </div>
     </aside>
 
-    <main class="board">
-        <div class="column" data-status="backlog">
-            <div class="column-header">
-                <h2>Бэклог</h2>
-                <span class="task-count" id="backlog-count">0</span>
-            </div>
-            <div class="task-list" id="backlog"></div>
+    <div class="main-content">
+        <div class="tabs">
+            <button class="tab active" data-tab="board">Доска</button>
+            <button class="tab" data-tab="calendar">Календарь</button>
+            <button class="tab" data-tab="gantt">Диаграмма Ганта</button>
         </div>
-        <div class="column" data-status="in_progress">
-            <div class="column-header">
-                <h2>В работе</h2>
-                <span class="task-count" id="in_progress-count">0</span>
+
+        <div id="board-panel" class="panel active">
+            <div class="board">
+                <div class="column" data-status="backlog">
+                    <div class="column-header">
+                        <h2>Бэклог</h2>
+                        <span class="task-count" id="backlog-count">0</span>
+                    </div>
+                    <div class="task-list" id="backlog"></div>
+                </div>
+                <div class="column" data-status="in_progress">
+                    <div class="column-header">
+                        <h2>В работе</h2>
+                        <span class="task-count" id="in_progress-count">0</span>
+                    </div>
+                    <div class="task-list" id="in_progress"></div>
+                </div>
+                <div class="column" data-status="review">
+                    <div class="column-header">
+                        <h2>Ревью</h2>
+                        <span class="task-count" id="review-count">0</span>
+                    </div>
+                    <div class="task-list" id="review"></div>
+                </div>
+                <div class="column" data-status="done">
+                    <div class="column-header">
+                        <h2>Готово</h2>
+                        <span class="task-count" id="done-count">0</span>
+                    </div>
+                    <div class="task-list" id="done"></div>
+                </div>
             </div>
-            <div class="task-list" id="in_progress"></div>
         </div>
-        <div class="column" data-status="review">
-            <div class="column-header">
-                <h2>Ревью</h2>
-                <span class="task-count" id="review-count">0</span>
-            </div>
-            <div class="task-list" id="review"></div>
+
+        <div id="calendar-panel" class="panel">
+            <div id="calendar-container"></div>
         </div>
-        <div class="column" data-status="done">
-            <div class="column-header">
-                <h2>Готово</h2>
-                <span class="task-count" id="done-count">0</span>
-            </div>
-            <div class="task-list" id="done"></div>
+
+        <div id="gantt-panel" class="panel">
+            <div id="gantt-container"></div>
         </div>
-    </main>
+    </div>
 </div>
 
 <!-- Модальное окно создания задачи -->
@@ -154,13 +172,10 @@
                 <input type="checkbox" id="allow-edit">
                 <span>Разрешить участникам создавать и редактировать задачи</span>
             </label>
-
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="checkbox" id="allow-invites">
                 <span>Участники могут приглашать других</span>
             </label>
-            
-            
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-team-modal">Отмена</button>
@@ -184,16 +199,7 @@
     </div>
 </div>
 
-<div id="calendar-modal-overlay" class="modal-overlay hidden">
-    <div class="modal" style="width: 90vw; max-width: 900px;">
-        <h3>Мой календарь</h3>
-        <div id="calendar-container"></div>
-        <div class="modal-actions">
-            <button type="button" id="close-calendar-modal">Закрыть</button>
-        </div>
-    </div>
-</div>
-
+<!-- Модальное окно подтверждения выхода из команды -->
 <div id="confirm-leave-overlay" class="modal-overlay hidden">
     <div class="modal" style="max-width: 400px;">
         <h3>Покинуть команду?</h3>
@@ -201,16 +207,6 @@
         <div class="modal-actions">
             <button type="button" id="confirm-leave-btn" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Покинуть</button>
             <button type="button" id="cancel-leave-btn" style="background:transparent; border:1px solid #d1d5db; color:#4b5563; padding:8px 16px; border-radius:8px; cursor:pointer;">Отмена</button>
-        </div>
-    </div>
-</div>
-
-<div id="gantt-modal-overlay" class="modal-overlay hidden">
-    <div class="modal" style="width: 95vw; max-width: 1100px;">
-        <h3>Диаграмма Ганта проекта</h3>
-        <div id="gantt-container" style="background: white; border-radius: 8px; padding: 4px; margin-top: 8px; min-height: 400px;"></div>
-        <div class="modal-actions" style="margin-top: 12px;">
-            <button type="button" id="close-gantt-modal">Закрыть</button>
         </div>
     </div>
 </div>

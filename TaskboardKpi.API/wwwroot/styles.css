@@ -534,108 +534,54 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* КАЛЕНДАРЬ */
-.calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
-    background: #e5e7eb;
-    border-radius: 8px;
+/* Основной контент (правая часть) */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
-.calendar-day-header {
-    background: #6366f1;
-    color: white;
-    text-align: center;
-    padding: 6px 0;
-    font-size: 12px;
-    font-weight: 600;
+.panel {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
 }
-.calendar-cell {
-    background: white;
-    min-height: 80px;
-    padding: 4px;
-    font-size: 11px;
-    color: #1e293b;
-}
-.calendar-cell .day-num {
-    font-weight: 600;
-    margin-bottom: 4px;
-}
-.calendar-cell .task-dot {
-    display: block;
-    padding: 2px 4px;
-    margin: 2px 0;
-    border-radius: 4px;
-    font-size: 10px;
-    background: #ede9fe;
-    cursor: pointer;
-}
-.calendar-cell .task-dot:hover {
-    background: #dcd7fe;
-}
-.calendar-controls {
+.panel.active {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+    flex-direction: column;
 }
-.calendar-controls button {
-    background: transparent;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 4px 12px;
-    cursor: pointer;
-    font-size: 13px;
-}
-.calendar-controls span {
-    font-weight: 600;
-    font-size: 15px;
+#board-panel {
+    padding: 0; /* у самой доски свои отступы */
 }
 
-/* ДИАГРАММА ГАНТА */
-.gantt-chart {
-    background: white;
-    border-radius: 8px;
-    padding: 16px;
-    overflow-x: auto;
-}
-.gantt-row {
+/* Вкладки */
+/* Вкладки */
+.tabs {
     display: flex;
-    align-items: center;
-    margin-bottom: 8px;
+    gap: 4px;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 4px;
+    margin: 20px 32px 0 32px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    width: fit-content;
 }
-.gantt-task-name {
-    width: 200px;
-    font-size: 13px;
+.tab {
+    background: transparent;
+    border: none;
+    padding: 8px 20px;
+    font-size: 14px;
     font-weight: 500;
-    flex-shrink: 0;
-}
-.gantt-bar-container {
-    flex: 1;
-    height: 24px;
-    background: #f3f4f6;
-    border-radius: 4px;
-    position: relative;
-    margin-left: 8px;
-}
-.gantt-bar {
-    position: absolute;
-    height: 100%;
-    border-radius: 4px;
-    top: 0;
-    cursor: pointer;
-    transition: opacity 0.2s;
-}
-.gantt-bar:hover {
-    opacity: 0.8;
-}
-.gantt-bar-label {
-    position: absolute;
-    right: -60px;
-    font-size: 10px;
     color: #6b7280;
-    top: 50%;
-    transform: translateY(-50%);
-    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.tab:hover {
+    background: #f3f4f6;
+    color: #1e293b;
+}
+.tab.active {
+    background: #6366f1;
+    color: white;
 }

@@ -9,12 +9,36 @@
 #calendar-panel.active {
     display: block;
 }
+
+/* Переключатель режимов */
+.calendar-mode-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.calendar-mode-bar button {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.2s;
+}
+.calendar-mode-bar button.active {
+    background: #6366f1;
+    color: white;
+    border-color: #6366f1;
+}
+
+/* Сетка месяца */
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 2px;
     background: #e5e7eb;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
     margin-top: 16px;
 }
@@ -28,8 +52,8 @@
 }
 .calendar-cell {
     background: white;
-    min-height: 80px;
-    padding: 4px;
+    min-height: 100px;          /* было 80, стало выше */
+    padding: 6px 8px;
     font-size: 11px;
     color: #1e293b;
 }
@@ -39,16 +63,19 @@
 }
 .calendar-cell .task-dot {
     display: block;
-    padding: 2px 4px;
-    margin: 2px 0;
-    border-radius: 4px;
-    font-size: 10px;
+    padding: 6px 8px;          /* крупнее */
+    margin: 3px 0;
+    border-radius: 6px;
+    font-size: 12px;           /* крупнее */
+    font-weight: 500;
+    line-height: 1.4;
     background: #ede9fe;
     cursor: pointer;
 }
 .calendar-cell .task-dot:hover {
     background: #dcd7fe;
 }
+
 .calendar-controls {
     display: flex;
     justify-content: space-between;
@@ -66,4 +93,54 @@
 .calendar-controls span {
     font-weight: 600;
     font-size: 15px;
+}
+
+/* Представления "Неделя" и "Сегодня" – список с белым фоном */
+.calendar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    border: 1px solid #e5e7eb;
+}
+.calendar-list-item {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+.calendar-list-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    background: #ffffff;
+}
+.calendar-list-date {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6366f1;
+    min-width: 100px;
+    text-align: right;
+    line-height: 1.4;
+}
+.calendar-list-content {
+    flex: 1;
+}
+.calendar-list-content .task-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 6px;
+    padding-left: 8px;
+}
+.calendar-list-content .task-meta {
+    font-size: 13px;
+    color: #6b7280;
+    margin-left: 8px;
 }

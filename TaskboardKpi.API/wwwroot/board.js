@@ -1,13 +1,6 @@
 const API_BASE = window.API_BASE_URL || '';
 function api(path, options = {}) {
-    return fetch(API_BASE + path, options).then(resp => {
-        if (resp.status === 401){
-            local.removeItem('token');
-            window.location.href = '/login.html';
-            throw new Error('Unauthorized');
-        }
-        return resp;
-    });
+    return fetch(API_BASE + path, options);
 }
 
 const statuses = ['backlog', 'in_progress', 'review', 'done'];
@@ -50,18 +43,6 @@ function checkAuth() {
         window.location.href = '/login.html';
         return null;
     }
-
-    // Проверяем срок действия токена
-    const payload = parseJwt(token);
-    if (payload && payload.exp) {
-        const expiry = payload.exp * 1000; // в миллисекунды
-        if (Date.now() > expiry) {
-            // Токен истёк
-            localStorage.removeItem('token');
-            window.location.href = '/login.html';
-            return null;
-        }
-    }
     return token;
 }
 
@@ -81,6 +62,35 @@ function parseJwt(token) {
 function getUserIdFromToken(token) {
     const payload = parseJwt(token);
     return payload ? payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] : null;
+}
+
+// ================== Вкладки ==================
+function initTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const panels = {
+        board: document.getElementById('board-panel'),
+        calendar: document.getElementById('calendar-panel'),
+        gantt: document.getElementById('gantt-panel')
+    };
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', async () => {
+            const target = tab.dataset.tab;
+
+            // Обновляем классы активных вкладок и панелей
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            Object.values(panels).forEach(p => p?.classList.remove('active'));
+            if (panels[target]) panels[target].classList.add('active');
+
+            // При переключении на календарь или Ганта — рендерим их
+            if (target === 'calendar') {
+                await renderCalendar();
+            } else if (target === 'gantt') {
+                await renderGantt();
+            }
+        });
+    });
 }
 
 // ================== Профиль ==================
@@ -122,8 +132,10 @@ async function loadTeams() {
                 <div style="display: flex; flex-direction: column; width: 100%;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span>${escapeHtml(team.name)}</span>
-                        <span class="team-badge ${team.isOwner ? 'owner' : 'member'}">
-                            ${team.isOwner ? 'Админ' : 'Участник'}
+                        <span style="display: flex; align-items: center; gap: 4px;">
+                            <span class="team-badge ${team.isOwner ? 'owner' : 'member'}">
+                                ${team.isOwner ? 'Админ' : 'Участник'}
+                            </span>
                         </span>
                     </div>
                     ${team.isOwner ? '' : `<span class="team-owner" style="font-size:12px;color:#6b7280;">Владелец: ${escapeHtml(team.ownerName)}</span>`}
@@ -139,26 +151,6 @@ async function loadTeams() {
     } catch (err) {
         console.error('Ошибка загрузки команд', err);
     }
-}
-
-
-function initCopyTeamIdButton() {
-    const btn = document.getElementById('copy-team-id-btn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-        // Получаем teamId из текущего токена
-        const tokenData = parseJwt(currentToken);
-        const teamId = tokenData?.teamId;
-        if (!teamId) {
-            showToast('Не удалось получить ID команды');
-            return;
-        }
-        navigator.clipboard.writeText(teamId).then(() => {
-            showToast('ID команды скопирован', 'success');
-        }).catch(() => {
-            prompt('ID команды:', teamId);
-        });
-    });
 }
 
 function escapeHtml(str) {
@@ -182,7 +174,11 @@ async function switchTeam(teamId) {
         localStorage.setItem('token', data.token);
         currentToken = data.token;
         currentUserId = getUserIdFromToken(currentToken);
+        
+        cachedTasks = [];
 
+        // Сбрасываем на доску при переключении команды
+        document.querySelector('.tab[data-tab="board"]').click();
         await loadProfile();
         await loadTeams();
         await loadMembers();
@@ -299,7 +295,6 @@ function renderColumn(status, tasks) {
     if (countSpan) countSpan.textContent = arr.length;
 }
 
-// ================== Drag-and-drop ==================
 function initSortable() {
     statuses.forEach(status => {
         const el = document.getElementById(status);
@@ -326,6 +321,250 @@ function initSortable() {
             }
         });
     });
+}
+
+// ================== Календарь ==================
+let calendarMode = 'month';
+let cachedTasks = [];
+const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+async function renderCalendar() {
+    const container = document.getElementById('calendar-container');
+    if (!container) return;
+
+    // Загружаем задачи только один раз (при первом открытии или явном refresh)
+    if (cachedTasks.length === 0) {
+        container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
+        try {
+            const resp = await api('/api/tasks/my', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            if (!resp.ok) throw new Error('Ошибка загрузки');
+            cachedTasks = await resp.json();
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки календаря</p>';
+            return;
+        }
+    }
+
+    const tasks = cachedTasks;
+
+    // Строим режим-зависимую разметку
+    if (calendarMode === 'month') {
+        renderMonthView(container, tasks);
+    } else {
+        renderListView(container, tasks, calendarMode);
+    }
+}
+
+function renderMonthView(container, tasks) {
+    const tasksByDate = {};
+    tasks.forEach(t => {
+        const date = t.dueDate?.split('T')[0];
+        if (!date) return;
+        if (!tasksByDate[date]) tasksByDate[date] = [];
+        tasksByDate[date].push(t);
+    });
+
+    const now = new Date();
+    let currentMonth = now.getMonth();
+    let currentYear = now.getFullYear();
+
+    function renderMonth() {
+        const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const dayHeaders = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+        let html = `
+        <div class="calendar-mode-bar">
+            <button class="${calendarMode === 'week' ? 'active' : ''}" data-mode="week">Неделя</button>
+            <button class="${calendarMode === 'today' ? 'active' : ''}" data-mode="today">Сегодня</button>
+            <button class="${calendarMode === 'month' ? 'active' : ''}" data-mode="month">Месяц</button>
+        </div>
+        <div class="calendar-controls">
+            <button id="cal-prev">◀</button>
+            <span>${monthNames[currentMonth]} ${currentYear}</span>
+            <button id="cal-next">▶</button>
+        </div>
+        <div class="calendar-grid">`;
+
+        dayHeaders.forEach(d => html += `<div class="calendar-day-header">${d}</div>`);
+
+        for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+            html += '<div class="calendar-cell"></div>';
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayTasks = tasksByDate[dateStr] || [];
+            let tasksHtml = '';
+            dayTasks.forEach(t => {
+                const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+                const color = colors[t.priority] || '#6366f1';
+                tasksHtml += `<span class="task-dot" style="border-left:3px solid ${color};" data-id="${t.id}">${t.title}</span>`;
+            });
+            html += `<div class="calendar-cell"><div class="day-num">${day}</div>${tasksHtml}</div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Навешиваем обработчики
+        setupCalendarModeButtons(container);
+        document.getElementById('cal-prev').addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            renderMonth();
+        });
+        document.getElementById('cal-next').addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderMonth();
+        });
+        container.querySelectorAll('.task-dot').forEach(dot => {
+            dot.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openTaskDetail(dot.dataset.id);
+            });
+        });
+    }
+
+    renderMonth();
+}
+
+function renderListView(container, tasks, mode) {
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // Определяем диапазон
+    let startDate, endDate;
+    if (mode === 'today') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    } else { // week
+        const dayOfWeek = now.getDay();
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        startDate = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+        endDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + 7);
+    }
+
+    const filtered = tasks.filter(t => {
+        if (!t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        return d >= startDate && d < endDate;
+    });
+
+    // Сортируем по дате
+    filtered.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+    let html = `
+    <div class="calendar-mode-bar">
+        <button class="${mode === 'week' ? 'active' : ''}" data-mode="week">Неделя</button>
+        <button class="${mode === 'today' ? 'active' : ''}" data-mode="today">Сегодня</button>
+        <button class="${mode === 'month' ? 'active' : ''}" data-mode="month">Месяц</button>
+    </div>
+    <div class="calendar-list">`;
+
+    if (filtered.length === 0) {
+        html += '<p style="text-align:center;color:#6b7280;padding:20px;">Нет задач на этот период</p>';
+    } else {
+        filtered.forEach(t => {
+            const dueDate = new Date(t.dueDate);
+            const dateFormatted = dueDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
+            const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+            const color = colors[t.priority] || '#6366f1';
+            html += `
+            <div class="calendar-list-item" data-id="${t.id}">
+                <div class="calendar-list-date">${dateFormatted}</div>
+                <div class="calendar-list-content">
+                    <div class="task-title" style="border-left:3px solid ${color}; padding-left:8px;">${t.title}</div>
+                    <div class="task-meta">Приоритет: ${t.priority} | Статус: ${t.status}</div>
+                </div>
+            </div>`;
+        });
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    setupCalendarModeButtons(container);
+    container.querySelectorAll('.calendar-list-item').forEach(item => {
+        item.addEventListener('click', () => {
+            openTaskDetail(item.dataset.id);
+        });
+    });
+}
+
+function setupCalendarModeButtons(container) {
+    container.querySelectorAll('.calendar-mode-bar button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            if (mode && mode !== calendarMode) {
+                calendarMode = mode;
+                renderCalendar();   // перерисовываем с тем же кэшем
+            }
+        });
+    });
+}
+
+// ================== Диаграмма Ганта ==================
+async function renderGantt() {
+    const container = document.getElementById('gantt-container');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
+
+    try {
+        const resp = await api('/api/tasks/gantt', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const tasks = resp.ok ? await resp.json() : [];
+        const filtered = tasks.filter(t => t.dueDate);
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:40px;">Нет задач с дедлайнами в этой команде.</p>';
+            return;
+        }
+
+        const dates = filtered.map(t => new Date(t.dueDate));
+        const minDate = new Date(Math.min(...dates));
+        minDate.setDate(minDate.getDate() - 7);
+        const maxDate = new Date(Math.max(...dates));
+        maxDate.setDate(maxDate.getDate() + 1);
+        const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+        const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+
+        let html = '<div class="gantt-chart">';
+        filtered.forEach(t => {
+            const due = new Date(t.dueDate);
+            const start = new Date(due);
+            start.setDate(start.getDate() - 5);
+            if (start < minDate) start.setTime(minDate.getTime());
+
+            const leftPercent = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const widthPercent = ((due - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+            const color = colors[t.priority] || '#6366f1';
+
+            html += `<div class="gantt-row">
+                <div class="gantt-task-name">${t.title}</div>
+                <div class="gantt-bar-container">
+                    <div class="gantt-bar" style="left:${leftPercent}%; width:${widthPercent}%; background:${color};" data-id="${t.id}">
+                        <span class="gantt-bar-label">${t.assigneeName || ''}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+
+        container.querySelectorAll('.gantt-bar').forEach(bar => {
+            bar.addEventListener('click', () => {
+                openTaskDetail(bar.dataset.id);
+            });
+        });
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки диаграммы</p>';
+    }
 }
 
 // ================== Создание задачи ==================
@@ -396,7 +635,6 @@ async function openTaskDetail(taskId) {
         document.getElementById('detail-task-status').value = task.status || 'backlog';
         document.getElementById('detail-task-due-date').value = task.dueDate || '';
 
-        // Исполнитель
         document.getElementById('current-assignee-name').textContent = task.assigneeName || 'Не назначен';
         const selfAssignBtn = document.getElementById('self-assign-btn');
         const unassignBtn = document.getElementById('unassign-btn');
@@ -418,7 +656,6 @@ async function openTaskDetail(taskId) {
         if (task.assigneeId) assigneeSelect.value = task.assigneeId;
 
         assignOthersDiv.style.display = canEdit ? 'block' : 'none';
-
         document.getElementById('detail-save-btn').disabled = !canEdit;
         overlay.classList.remove('hidden');
     } catch (err) {
@@ -480,7 +717,6 @@ function initTaskDetailModal() {
         }
     });
 
-    // Кнопки назначения
     document.getElementById('self-assign-btn').addEventListener('click', async () => {
         if (!currentDetailTaskId) return;
         const res = await api(`/api/tasks/${currentDetailTaskId}/self-assign`, {
@@ -594,6 +830,26 @@ function initJoinTeamModal() {
     });
 }
 
+// ================== Копирование ID команды ==================
+function initCopyTeamIdButton() {
+    const btn = document.getElementById('copy-team-id-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        const tokenData = parseJwt(currentToken);
+        const teamId = tokenData?.teamId;
+        if (!teamId) {
+            showToast('Не удалось получить ID команды');
+            return;
+        }
+        navigator.clipboard.writeText(teamId).then(() => {
+            showToast('ID команды скопирован', 'success');
+        }).catch(() => {
+            prompt('ID команды:', teamId);
+        });
+    });
+}
+
+// ================== Выход из команды ==================
 function initLeaveTeam() {
     const openBtn = document.getElementById('leave-team-btn');
     const overlay = document.getElementById('confirm-leave-overlay');
@@ -602,39 +858,24 @@ function initLeaveTeam() {
 
     if (!openBtn || !overlay || !confirmBtn || !cancelBtn) return;
 
-    openBtn.addEventListener('click', () => {
-        overlay.classList.remove('hidden');
-    });
-
-    cancelBtn.addEventListener('click', () => {
-        overlay.classList.add('hidden');
-    });
-
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.classList.add('hidden');
-    });
+    openBtn.addEventListener('click', () => overlay.classList.remove('hidden'));
+    cancelBtn.addEventListener('click', () => overlay.classList.add('hidden'));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
 
     confirmBtn.addEventListener('click', async () => {
         const res = await api('/api/teams/leave', {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
-
         if (res.ok) {
             overlay.classList.add('hidden');
             showToast('Вы покинули команду', 'success');
-            // Переключиться на другую команду или перезагрузить список команд
-            const teamsResp = await api('/api/teams/my', {
-                headers: { 'Authorization': `Bearer ${currentToken}` }
-            });
+            const teamsResp = await api('/api/teams/my', { headers: { 'Authorization': `Bearer ${currentToken}` } });
             if (teamsResp.ok) {
                 const teams = await teamsResp.json();
-                if (teams.length > 0) {
-                    await switchTeam(teams[0].id);
-                } else {
-                    // Если команд не осталось, перенаправим на создание команды или покажем ошибку
+                if (teams.length > 0) await switchTeam(teams[0].id);
+                else {
                     showToast('У вас не осталось команд. Создайте новую.', 'error');
-                    // можно перенаправить на создание или обновить интерфейс
                     loadTeams();
                 }
             }
@@ -646,7 +887,7 @@ function initLeaveTeam() {
     });
 }
 
-// ================== Выход ==================
+// ================== Выход из профиля ==================
 function initLogout() {
     const btn = document.getElementById('logout-btn');
     if (btn) {
@@ -657,206 +898,20 @@ function initLogout() {
     }
 }
 
-// Вспомогательная функция для загрузки скрипта динамически
-function loadScript(url) {
-    return new Promise((resolve, reject) => {
-        if (window.FullCalendar) return resolve();
-        const script = document.createElement('script');
-        script.src = url;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
-    });
-}
-
-function initCalendar() {
-    const modal = document.getElementById('calendar-modal-overlay');
-    const openBtn = document.getElementById('calendar-btn');
-    const closeBtn = document.getElementById('close-calendar-modal');
-    if (!modal || !openBtn || !closeBtn) return;
-
-    openBtn.addEventListener('click', async () => {
-        modal.classList.remove('hidden');
-        const container = document.getElementById('calendar-container');
-        container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
-
-        try {
-            const resp = await api('/api/tasks/my', {
-                headers: { 'Authorization': `Bearer ${currentToken}` }
-            });
-            const tasks = resp.ok ? await resp.json() : [];
-
-            // Собираем задачи по датам
-            const tasksByDate = {};
-            tasks.forEach(t => {
-                const date = t.dueDate?.split('T')[0];
-                if (!date) return;
-                if (!tasksByDate[date]) tasksByDate[date] = [];
-                tasksByDate[date].push(t);
-            });
-
-            const now = new Date();
-            let currentMonth = now.getMonth();
-            let currentYear = now.getFullYear();
-
-            function renderMonth() {
-                const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-                const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-                const dayHeaders = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-
-                let html = `<div class="calendar-controls">
-                    <button id="cal-prev">◀</button>
-                    <span>${monthNames[currentMonth]} ${currentYear}</span>
-                    <button id="cal-next">▶</button>
-                </div>`;
-                html += '<div class="calendar-grid">';
-                dayHeaders.forEach(d => html += `<div class="calendar-day-header">${d}</div>`);
-
-                // Пустые ячейки до первого дня
-                for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
-                    html += '<div class="calendar-cell"></div>';
-                }
-
-                for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dayTasks = tasksByDate[dateStr] || [];
-                    let tasksHtml = '';
-                    dayTasks.forEach(t => {
-                        const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
-                        const color = colors[t.priority] || '#6366f1';
-                        tasksHtml += `<span class="task-dot" style="border-left:3px solid ${color};" data-id="${t.id}">${t.title}</span>`;
-                    });
-                    html += `<div class="calendar-cell"><div class="day-num">${day}</div>${tasksHtml}</div>`;
-                }
-                html += '</div>';
-                container.innerHTML = html;
-
-                // Обработчики переключения месяцев
-                document.getElementById('cal-prev').addEventListener('click', () => {
-                    currentMonth--;
-                    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-                    renderMonth();
-                });
-                document.getElementById('cal-next').addEventListener('click', () => {
-                    currentMonth++;
-                    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-                    renderMonth();
-                });
-
-                // Клик по задаче
-                container.querySelectorAll('.task-dot').forEach(dot => {
-                    dot.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const taskId = dot.dataset.id;
-                        openTaskDetail(taskId);
-                        modal.classList.add('hidden');
-                    });
-                });
-            }
-
-            renderMonth();
-        } catch (err) {
-            console.error(err);
-            container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки календаря</p>';
-        }
-    });
-
-    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
-}
-
-function initGantt() {
-    const modal = document.getElementById('gantt-modal-overlay');
-    const openBtn = document.getElementById('gantt-btn');
-    const closeBtn = document.getElementById('close-gantt-modal');
-    if (!modal || !openBtn || !closeBtn) return;
-
-    openBtn.addEventListener('click', async () => {
-        modal.classList.remove('hidden');
-        const container = document.getElementById('gantt-container');
-        container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
-
-        try {
-            const resp = await api('/api/tasks/gantt', {
-                headers: { 'Authorization': `Bearer ${currentToken}` }
-            });
-            const tasks = resp.ok ? await resp.json() : [];
-
-            const filtered = tasks.filter(t => t.dueDate);
-            if (filtered.length === 0) {
-                container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:40px;">Нет задач с дедлайнами в этой команде.</p>';
-                return;
-            }
-
-            // Определяем диапазон дат
-            const dates = filtered.map(t => new Date(t.dueDate));
-            const minDate = new Date(Math.min(...dates));
-            minDate.setDate(minDate.getDate() - 7); // отступ слева
-            const maxDate = new Date(Math.max(...dates));
-            maxDate.setDate(maxDate.getDate() + 1);
-            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
-
-            const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
-
-            let html = '<div class="gantt-chart">';
-            filtered.forEach(t => {
-                const due = new Date(t.dueDate);
-                const start = new Date(due);
-                start.setDate(start.getDate() - 5);
-                if (start < minDate) start.setTime(minDate.getTime());
-
-                const leftPercent = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-                const widthPercent = ((due - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-                const color = colors[t.priority] || '#6366f1';
-
-                html += `<div class="gantt-row">
-                    <div class="gantt-task-name">${t.title}</div>
-                    <div class="gantt-bar-container">
-                        <div class="gantt-bar" style="left:${leftPercent}%; width:${widthPercent}%; background:${color};" data-id="${t.id}">
-                            <span class="gantt-bar-label">${t.assigneeName || ''}</span>
-                        </div>
-                    </div>
-                </div>`;
-            });
-            html += '</div>';
-            container.innerHTML = html;
-
-            // Клик по полосе
-            container.querySelectorAll('.gantt-bar').forEach(bar => {
-                bar.addEventListener('click', () => {
-                    const taskId = bar.dataset.id;
-                    openTaskDetail(taskId);
-                    modal.classList.add('hidden');
-                });
-            });
-
-        } catch (err) {
-            console.error(err);
-            container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки диаграммы</p>';
-        }
-    });
-
-    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
-}
-
 // ================== Старт ==================
 currentToken = checkAuth();
 if (currentToken) {
     currentUserId = getUserIdFromToken(currentToken);
     loadProfile().then(() => loadTeams()).then(() => loadMembers()).then(() => {
+        initTabs();
         initLogout();
         initSortable();
         initCreateTaskModal();
         initTaskDetailModal();
         initCreateTeamModal();
         initJoinTeamModal();
-        initLeaveTeam();
         initCopyTeamIdButton();
-        initCalendar();
-        initGantt();
+        initLeaveTeam();
         return loadBoard();
     }).catch(err => console.error(err));
 }
