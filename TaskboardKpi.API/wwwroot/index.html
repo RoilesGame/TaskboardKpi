@@ -42,6 +42,8 @@
         </div>
     </aside>
 
+    <div class="sidebar-resizer" id="sidebar-resizer"></div>
+
     <div class="main-content">
         <div class="tabs">
             <button class="tab active" data-tab="board">Доска</button>
@@ -108,8 +110,13 @@
                 <option value="high">Высокий</option>
                 <option value="critical">Критический</option>
             </select>
+            
+            <label>Дата начала (необязательно)</label>
+            <input type="date" id="task-start-date">
+            
             <label>Срок выполнения</label>
             <input type="date" id="task-due-date">
+            
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-modal">Отмена</button>
@@ -141,8 +148,14 @@
                 <option value="review">Ревью</option>
                 <option value="done">Готово</option>
             </select>
+            
+            <label>Дата начала</label>
+            <input type="date" id="detail-task-start-date">
+            
+            
             <label>Срок выполнения</label>
             <input type="date" id="detail-task-due-date">
+            
             <label>Исполнитель</label>
             <div id="assignee-container">
                 <span id="current-assignee-name" style="margin-right: 8px;">Не назначен</span>

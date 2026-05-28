@@ -13,6 +13,7 @@ public class TaskItem
     public User? Assignee { get; set; }
     public Guid CreatedBy { get; set; }
     public User CreatedByUser { get; set; } = null!;
+    public DateOnly? StartDate { get; set; }
     public DateOnly? DueDate { get; set; }
     public int Position { get; set; }
     public DateTime CreatedAt { get; set; }

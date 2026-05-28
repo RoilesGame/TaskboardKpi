@@ -93,6 +93,41 @@ function initTabs() {
     });
 }
 
+function initResizer() {
+    const sidebar = document.querySelector('.sidebar');
+    const resizer = document.getElementById('sidebar-resizer');
+    if (!sidebar || !resizer) return;
+
+    let startX, startWidth;
+
+    function onMouseDown(e) {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        resizer.classList.add('resizing');
+        document.body.style.userSelect = 'none';
+    }
+
+    function onMouseMove(e) {
+        const delta = e.clientX - startX;
+        let newWidth = startWidth + delta;
+        // Ограничиваем ширину в пределах [220, 480] (как в CSS)
+        newWidth = Math.min(Math.max(newWidth, 220), 480);
+        sidebar.style.width = newWidth + 'px';
+    }
+
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        resizer.classList.remove('resizing');
+        document.body.style.userSelect = '';
+    }
+
+    resizer.addEventListener('mousedown', onMouseDown);
+}
+
 // ================== Профиль ==================
 async function loadProfile() {
     try {
@@ -518,49 +553,135 @@ async function renderGantt() {
             headers: { 'Authorization': `Bearer ${currentToken}` }
         });
         const tasks = resp.ok ? await resp.json() : [];
-        const filtered = tasks.filter(t => t.dueDate);
-
-        if (filtered.length === 0) {
+        if (!tasks.length) {
             container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:40px;">Нет задач с дедлайнами в этой команде.</p>';
             return;
         }
 
-        const dates = filtered.map(t => new Date(t.dueDate));
-        const minDate = new Date(Math.min(...dates));
-        minDate.setDate(minDate.getDate() - 7);
-        const maxDate = new Date(Math.max(...dates));
-        maxDate.setDate(maxDate.getDate() + 1);
+        const minDate = new Date(Math.min(...tasks.map(t => new Date(t.startDate))));
+        const maxDate = new Date(Math.max(...tasks.map(t => new Date(t.dueDate))));
+        minDate.setDate(minDate.getDate() - 2);
+        maxDate.setDate(maxDate.getDate() + 2);
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
-        const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
 
-        let html = '<div class="gantt-chart">';
-        filtered.forEach(t => {
-            const due = new Date(t.dueDate);
-            const start = new Date(due);
-            start.setDate(start.getDate() - 5);
-            if (start < minDate) start.setTime(minDate.getTime());
+        if (typeof ganttDivision === 'undefined') {
+            window.ganttDivision = 'weeks';
+        }
 
-            const leftPercent = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-            const widthPercent = ((due - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-            const color = colors[t.priority] || '#6366f1';
+        function buildGantt(division) {
+            window.ganttDivision = division;
+            const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+            let html = '';
 
-            html += `<div class="gantt-row">
-                <div class="gantt-task-name">${t.title}</div>
-                <div class="gantt-bar-container">
-                    <div class="gantt-bar" style="left:${leftPercent}%; width:${widthPercent}%; background:${color};" data-id="${t.id}">
+            // Панель управления
+            html += `
+            <div class="gantt-controls">
+                <span>Цена деления:</span>
+                <select id="gantt-division">
+                    <option value="weeks" ${division === 'weeks' ? 'selected' : ''}>Недели</option>
+                    <option value="months" ${division === 'months' ? 'selected' : ''}>Месяцы</option>
+                </select>
+            </div>`;
+
+            html += '<div class="gantt-chart">';
+
+            // Левая колонка с названиями задач
+            html += '<div class="gantt-left-col">';
+            html += '<div class="gantt-left-header">Задача</div>';
+            tasks.forEach(t => {
+                html += `<div class="gantt-task-name" title="${t.title}">${t.title}</div>`;
+            });
+            html += '</div>';
+
+            // Правая колонка с диаграммой
+            html += '<div class="gantt-right-col">';
+
+            // Шкала месяцев
+            html += '<div class="gantt-timescale">';
+            const monthFormatter = new Intl.DateTimeFormat('ru', { month: 'short' });
+            let currentMonth = null;
+            for (let i = 0; i <= totalDays; i++) {
+                const d = new Date(minDate);
+                d.setDate(minDate.getDate() + i);
+                const monthKey = d.getMonth() + '-' + d.getFullYear();
+                if (monthKey !== currentMonth) {
+                    currentMonth = monthKey;
+                    const leftPercent = (i / totalDays) * 100;
+                    html += `<span class="gantt-month-marker" style="left:${leftPercent}%">${monthFormatter.format(d)}</span>`;
+                }
+            }
+            html += '</div>';
+
+            // Сетка и полосы
+            html += '<div class="gantt-grid-container" style="height: ' + (tasks.length * 48) + 'px;">';
+
+            // Вертикальные линии сетки
+            if (division === 'weeks') {
+                for (let i = 0; i <= totalDays; i += 7) {
+                    const leftPercent = (i / totalDays) * 100;
+                    html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
+                }
+            } else {
+                let currentMonthLine = null;
+                for (let i = 0; i <= totalDays; i++) {
+                    const d = new Date(minDate);
+                    d.setDate(minDate.getDate() + i);
+                    const monthKey = d.getMonth() + '-' + d.getFullYear();
+                    if (monthKey !== currentMonthLine) {
+                        currentMonthLine = monthKey;
+                        const leftPercent = (i / totalDays) * 100;
+                        html += `<div class="gantt-grid-line month" style="left:${leftPercent}%"></div>`;
+                    }
+                }
+            }
+
+            // Линия "Сегодня"
+            const today = new Date();
+            if (today >= minDate && today <= maxDate) {
+                const todayLeft = ((today - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                html += `<div class="gantt-today-line" style="left:${todayLeft}%"></div>`;
+            }
+
+            // Строки с полосами
+            tasks.forEach((t, index) => {
+                const start = new Date(t.startDate);
+                const end = new Date(t.dueDate);
+                const left = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                const width = ((end - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                const color = colors[t.priority] || '#6366f1';
+
+                html += `
+                <div class="gantt-row">
+                    <div class="gantt-bar" style="left:${left}%; width:${width}%; background:${color};" data-id="${t.id}">
                         <span class="gantt-bar-label">${t.assigneeName || ''}</span>
                     </div>
-                </div>
-            </div>`;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-
-        container.querySelectorAll('.gantt-bar').forEach(bar => {
-            bar.addEventListener('click', () => {
-                openTaskDetail(bar.dataset.id);
+                </div>`;
             });
-        });
+
+            html += '</div>'; // конец grid-container
+            html += '</div>'; // конец right-col
+            html += '</div>'; // конец gantt-chart
+
+            container.innerHTML = html;
+
+            // Обработчик переключения деления
+            const selectEl = document.getElementById('gantt-division');
+            if (selectEl) {
+                selectEl.addEventListener('change', function() {
+                    buildGantt(this.value);
+                });
+            }
+
+            // Клик по задаче
+            container.querySelectorAll('.gantt-bar').forEach(bar => {
+                bar.addEventListener('click', () => {
+                    openTaskDetail(bar.dataset.id);
+                });
+            });
+        }
+
+        buildGantt(window.ganttDivision || 'weeks');
+
     } catch (err) {
         console.error(err);
         container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки диаграммы</p>';
@@ -588,6 +709,7 @@ function initCreateTaskModal() {
         const description = document.getElementById('task-desc').value.trim();
         const priority = document.getElementById('task-priority').value;
         const dueDate = document.getElementById('task-due-date').value;
+        const startDate = document.getElementById('task-start-date').value;
 
         if (!title) return;
 
@@ -597,7 +719,7 @@ function initCreateTaskModal() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
-            body: JSON.stringify({ title, description, priority, dueDate: dueDate || null })
+            body: JSON.stringify({ title, description, priority, dueDate: dueDate || null, startDate: startDate || null })
         });
 
         if (res.ok) {
@@ -634,12 +756,14 @@ async function openTaskDetail(taskId) {
         document.getElementById('detail-task-priority').value = task.priority || 'medium';
         document.getElementById('detail-task-status').value = task.status || 'backlog';
         document.getElementById('detail-task-due-date').value = task.dueDate || '';
+        document.getElementById('detail-task-start-date').value = task.startDate || '';
 
         document.getElementById('current-assignee-name').textContent = task.assigneeName || 'Не назначен';
         const selfAssignBtn = document.getElementById('self-assign-btn');
         const unassignBtn = document.getElementById('unassign-btn');
         const assignOthersDiv = document.getElementById('assign-others');
         const assigneeSelect = document.getElementById('assignee-select');
+        const startDate = document.getElementById('detail-task-start-date').value;
         const canEdit = task.canEdit;
         const isSelf = (task.assigneeId === currentUserId);
 
@@ -674,6 +798,7 @@ function initTaskDetailModal() {
     const overlay = document.getElementById('task-detail-overlay');
     const closeBtn = document.getElementById('close-detail-modal');
     const form = document.getElementById('task-detail-form');
+    const startDate = document.getElementById('detail-task-start-date').value;
 
     if (!overlay || !closeBtn || !form) return;
 
@@ -696,6 +821,7 @@ function initTaskDetailModal() {
         const priority = document.getElementById('detail-task-priority').value;
         const status = document.getElementById('detail-task-status').value;
         const dueDate = document.getElementById('detail-task-due-date').value;
+        const startDate = document.getElementById('detail-task-start-date').value;
 
         const res = await api(`/api/tasks/${currentDetailTaskId}`, {
             method: 'PUT',
@@ -703,7 +829,7 @@ function initTaskDetailModal() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
-            body: JSON.stringify({ title, description, priority, status, dueDate: dueDate || null })
+            body: JSON.stringify({ title, description, priority, status, dueDate: dueDate || null, startDate: startDate || null })
         });
 
         if (res.ok) {
@@ -904,6 +1030,7 @@ if (currentToken) {
     currentUserId = getUserIdFromToken(currentToken);
     loadProfile().then(() => loadTeams()).then(() => loadMembers()).then(() => {
         initTabs();
+        initResizer();
         initLogout();
         initSortable();
         initCreateTaskModal();

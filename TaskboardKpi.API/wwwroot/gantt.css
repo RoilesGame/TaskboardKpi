@@ -1,4 +1,4 @@
-/* ДИАГРАММА ГАНТА */
+/* ДИАГРАММА ГАНТА (исправленное выравнивание) */
 #gantt-panel {
     display: none;
     width: 100%;
@@ -10,48 +10,153 @@
 #gantt-panel.active {
     display: block;
 }
-.gantt-chart {
-    background: white;
-    border-radius: 8px;
-    padding: 16px;
-    margin-top: 16px;
-}
-.gantt-row {
+
+.gantt-controls {
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+.gantt-controls span {
+    color: #4b5563;
+    font-weight: 500;
+}
+.gantt-controls select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+}
+
+/* Основной контейнер диаграммы */
+.gantt-chart {
+    display: flex;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+
+/* Левая колонка (названия задач) */
+.gantt-left-col {
+    width: 240px;
+    flex-shrink: 0;
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+}
+.gantt-left-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+    padding: 0 16px;
+    height: 44px;
+    line-height: 44px;
+    border-bottom: 1px solid #d1d5db;
+    background: #f9fafb;
 }
 .gantt-task-name {
-    width: 220px;
-    font-size: 13px;
-    font-weight: 500;
-    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    padding: 0 16px;
+    height: 48px;                /* точно как gantt-row */
+    line-height: 48px;
+    border-bottom: 1px solid #f3f4f6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.gantt-bar-container {
+
+/* Правая колонка (диаграмма) */
+.gantt-right-col {
     flex: 1;
-    height: 24px;
-    background: #f3f4f6;
-    border-radius: 4px;
-    position: relative;
-    margin-left: 8px;
+    overflow-x: auto;
+    background: #ffffff;
 }
+
+/* Шкала месяцев */
+.gantt-timescale {
+    position: relative;
+    height: 44px;
+    border-bottom: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+.gantt-month-marker {
+    position: absolute;
+    top: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+    transform: translateX(0);
+    left: auto;
+    white-space: nowrap;
+    padding-left: 6px;
+}
+
+/* Контейнер сетки и полос */
+.gantt-grid-container {
+    position: relative;
+}
+
+/* Строка с полосой */
+.gantt-row {
+    position: relative;
+    height: 48px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+/* Полоса задачи */
 .gantt-bar {
     position: absolute;
-    height: 100%;
-    border-radius: 4px;
-    top: 0;
+    top: 8px;
+    bottom: 8px;
+    border-radius: 6px;
     cursor: pointer;
     transition: opacity 0.2s;
+    min-width: 4px;
 }
 .gantt-bar:hover {
-    opacity: 0.8;
+    opacity: 0.85;
 }
+
+/* Подпись на полосе */
 .gantt-bar-label {
     position: absolute;
     right: -60px;
-    font-size: 10px;
-    color: #6b7280;
+    font-size: 11px;
+    color: #4b5563;
     top: 50%;
     transform: translateY(-50%);
     white-space: nowrap;
+    font-weight: 500;
+}
+
+/* Вертикальные линии сетки */
+.gantt-grid-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #e5e7eb;
+    z-index: 0;
+}
+.gantt-grid-line.week {
+    background: #e5e7eb;
+}
+.gantt-grid-line.month {
+    background: #d1d5db;
+    width: 2px;
+}
+
+/* Линия сегодня */
+.gantt-today-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ef4444;
+    z-index: 1;
 }

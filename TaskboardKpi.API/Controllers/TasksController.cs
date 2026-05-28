@@ -31,7 +31,8 @@ public class TasksController : ControllerBase
         var teamId = Guid.Parse(teamIdClaim.Value);
 
         var tasks = await _db.Tasks
-            .Where(t => t.TeamId == teamId)
+            .Where(t => t.TeamId == teamId && t.DueDate != null)
+            .OrderBy(t => t.StartDate ?? t.DueDate)
             .Select(t => new
             {
                 t.Id,
@@ -39,7 +40,8 @@ public class TasksController : ControllerBase
                 t.Status,
                 t.Priority,
                 t.DueDate,
-                assigneeName = t.Assignee != null ? t.Assignee.FullName : "Не назначен"
+                StartDate = t.StartDate ?? t.DueDate.Value.AddDays(-5),
+                AssigneeName = t.Assignee != null ? t.Assignee.FullName : "Не назначен"
             })
             .ToListAsync();
 
@@ -147,9 +149,11 @@ public class TasksController : ControllerBase
             Status = dto.Status ?? "backlog",
             Priority = dto.Priority ?? "medium",
             DueDate = dto.DueDate,
+            StartDate = dto.StartDate,
             CreatedBy = userId,
             Position = await _db.Tasks.CountAsync(t => t.TeamId == teamId && t.Status == (dto.Status ?? "backlog"))
         };
+
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync();
 
@@ -209,9 +213,11 @@ public class TasksController : ControllerBase
         if (dto.Status != null) task.Status = dto.Status;
         if (dto.Priority != null) task.Priority = dto.Priority;
         if (dto.DueDate != null) task.DueDate = dto.DueDate;
+        if (dto.StartDate != null) task.StartDate = dto.StartDate;
 
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
         return Ok(new { message = "Задача обновлена" });
     }
 
@@ -313,6 +319,7 @@ public class CreateTaskDto
     public string? Status { get; set; }
     public string? Priority { get; set; }
     public DateOnly? DueDate { get; set; }
+    public DateOnly? StartDate { get; set; }
 }
 
 public class UpdateTaskDto
@@ -322,6 +329,7 @@ public class UpdateTaskDto
     public string? Status { get; set; }
     public string? Priority { get; set; }
     public DateOnly? DueDate { get; set; }
+    public DateOnly? StartDate { get; set; }
 }
 
 public class AssignTaskDto
