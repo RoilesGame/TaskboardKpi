@@ -1,0 +1,69 @@
+/* КАЛЕНДАРЬ */
+#calendar-panel {
+    display: none;
+    width: 100%;
+    padding: 24px 32px;
+    background: transparent;
+    overflow-y: auto;
+}
+#calendar-panel.active {
+    display: block;
+}
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    background: #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 16px;
+}
+.calendar-day-header {
+    background: #6366f1;
+    color: white;
+    text-align: center;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+}
+.calendar-cell {
+    background: white;
+    min-height: 80px;
+    padding: 4px;
+    font-size: 11px;
+    color: #1e293b;
+}
+.calendar-cell .day-num {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.calendar-cell .task-dot {
+    display: block;
+    padding: 2px 4px;
+    margin: 2px 0;
+    border-radius: 4px;
+    font-size: 10px;
+    background: #ede9fe;
+    cursor: pointer;
+}
+.calendar-cell .task-dot:hover {
+    background: #dcd7fe;
+}
+.calendar-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.calendar-controls button {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.calendar-controls span {
+    font-weight: 600;
+    font-size: 15px;
+}

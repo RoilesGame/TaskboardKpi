@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css' rel='stylesheet' />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Таскборд</title>
@@ -23,6 +22,7 @@
         <!-- Группа 1: календарь, новая задача, копировать ID -->
         <div class="sidebar-group">
             <button id="calendar-btn" class="btn-secondary" style="width:100%;">Мой календарь</button>
+            <button id="gantt-btn" class="btn-secondary" style="width:100%;">📊 Диаграмма Ганта</button>
             <button id="new-task-btn" class="btn-primary" style="width:100%;">Новая задача</button>
             <button id="copy-team-id-btn" class="btn-secondary" style="width:100%;">Копировать ID команды</button>
             <button id="leave-team-btn" class="btn-secondary" style="width:100%;">Покинуть команду</button>
@@ -205,8 +205,17 @@
     </div>
 </div>
 
+<div id="gantt-modal-overlay" class="modal-overlay hidden">
+    <div class="modal" style="width: 95vw; max-width: 1100px;">
+        <h3>Диаграмма Ганта проекта</h3>
+        <div id="gantt-container" style="background: white; border-radius: 8px; padding: 4px; margin-top: 8px; min-height: 400px;"></div>
+        <div class="modal-actions" style="margin-top: 12px;">
+            <button type="button" id="close-gantt-modal">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="board.js"></script>
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 </body>
 </html>

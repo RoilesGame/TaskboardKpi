@@ -1,0 +1,57 @@
+/* ДИАГРАММА ГАНТА */
+#gantt-panel {
+    display: none;
+    width: 100%;
+    padding: 24px 32px;
+    background: transparent;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+#gantt-panel.active {
+    display: block;
+}
+.gantt-chart {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+}
+.gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.gantt-task-name {
+    width: 220px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+.gantt-bar-container {
+    flex: 1;
+    height: 24px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    position: relative;
+    margin-left: 8px;
+}
+.gantt-bar {
+    position: absolute;
+    height: 100%;
+    border-radius: 4px;
+    top: 0;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.gantt-bar:hover {
+    opacity: 0.8;
+}
+.gantt-bar-label {
+    position: absolute;
+    right: -60px;
+    font-size: 10px;
+    color: #6b7280;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+}

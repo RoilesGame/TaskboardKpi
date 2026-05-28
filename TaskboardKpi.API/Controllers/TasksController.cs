@@ -22,16 +22,43 @@ public class TasksController : ControllerBase
         return team.OwnerId == userId || team.AllowMemberEditing;
     }
     
-    // GET api/tasks/my
+    // GET api/tasks/gantt
+    [HttpGet("gantt")]
+    public async Task<IActionResult> GetGantt()
+    {
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (teamIdClaim == null) return Unauthorized();
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var tasks = await _db.Tasks
+            .Where(t => t.TeamId == teamId)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Status,
+                t.Priority,
+                t.DueDate,
+                assigneeName = t.Assignee != null ? t.Assignee.FullName : "Не назначен"
+            })
+            .ToListAsync();
+
+        return Ok(tasks);
+    }
+    
+// GET api/tasks/my
     [HttpGet("my")]
     public async Task<IActionResult> GetMyTasks()
     {
         var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
-        if (userIdClaim == null) return Unauthorized();
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (userIdClaim == null || teamIdClaim == null) return Unauthorized();
+
         var userId = Guid.Parse(userIdClaim.Value);
+        var teamId = Guid.Parse(teamIdClaim.Value);
 
         var tasks = await _db.Tasks
-            .Where(t => t.AssigneeId == userId && t.DueDate != null)
+            .Where(t => t.AssigneeId == userId && t.TeamId == teamId && t.DueDate != null)
             .OrderBy(t => t.DueDate)
             .Select(t => new
             {

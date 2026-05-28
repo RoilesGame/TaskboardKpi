@@ -594,80 +594,6 @@ function initJoinTeamModal() {
     });
 }
 
-function initCalendar() {
-    const modal = document.getElementById('calendar-modal-overlay');
-    const openBtn = document.getElementById('calendar-btn');
-    const closeBtn = document.getElementById('close-calendar-modal');
-    if (!modal || !openBtn || !closeBtn) return;
-
-    openBtn.addEventListener('click', async () => {
-        modal.classList.remove('hidden');
-
-        // Загружаем задачи пользователя
-        const tasksResp = await api('/api/tasks/my', {
-            headers: { 'Authorization': `Bearer ${currentToken}` }
-        });
-        const tasks = tasksResp.ok ? await tasksResp.json() : [];
-
-        // Преобразуем задачи в события FullCalendar
-        const events = tasks.map(task => ({
-            id: task.id,
-            title: task.title,
-            start: task.dueDate,
-            allDay: true,
-            extendedProps: {
-                status: task.status,
-                priority: task.priority
-            }
-        }));
-
-        const container = document.getElementById('calendar-container');
-        // Уничтожаем предыдущий экземпляр календаря, если есть
-        if (container._calendar) {
-            container._calendar.destroy();
-        }
-
-        // Инициализируем календарь
-        const calendar = new FullCalendar.Calendar(container, {
-            initialView: 'dayGridMonth',
-            locale: 'ru',
-            events: events,
-            eventDisplay: 'block',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,dayGridWeek'
-            },
-            buttonText: {
-                today: 'Сегодня',
-                month: 'Месяц',
-                week: 'Неделя'
-            },
-            eventClick: function(info) {
-                // При клике на задачу открываем её детали
-                openTaskDetail(info.event.id);
-                modal.classList.add('hidden'); // закрываем календарь, чтобы редактировать
-            },
-            eventColor: '#6366f1',
-            eventContent: function(arg) {
-                const priority = arg.event.extendedProps.priority || 'medium';
-                const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
-                const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${colors[priority] || '#6366f1'};margin-right:4px;"></span>`;
-                return { html: dot + arg.event.title };
-            }
-        });
-        calendar.render();
-        container._calendar = calendar;
-    });
-
-    closeBtn.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-    });
-}
-
 function initLeaveTeam() {
     const openBtn = document.getElementById('leave-team-btn');
     const overlay = document.getElementById('confirm-leave-overlay');
@@ -731,6 +657,191 @@ function initLogout() {
     }
 }
 
+// Вспомогательная функция для загрузки скрипта динамически
+function loadScript(url) {
+    return new Promise((resolve, reject) => {
+        if (window.FullCalendar) return resolve();
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+function initCalendar() {
+    const modal = document.getElementById('calendar-modal-overlay');
+    const openBtn = document.getElementById('calendar-btn');
+    const closeBtn = document.getElementById('close-calendar-modal');
+    if (!modal || !openBtn || !closeBtn) return;
+
+    openBtn.addEventListener('click', async () => {
+        modal.classList.remove('hidden');
+        const container = document.getElementById('calendar-container');
+        container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
+
+        try {
+            const resp = await api('/api/tasks/my', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            const tasks = resp.ok ? await resp.json() : [];
+
+            // Собираем задачи по датам
+            const tasksByDate = {};
+            tasks.forEach(t => {
+                const date = t.dueDate?.split('T')[0];
+                if (!date) return;
+                if (!tasksByDate[date]) tasksByDate[date] = [];
+                tasksByDate[date].push(t);
+            });
+
+            const now = new Date();
+            let currentMonth = now.getMonth();
+            let currentYear = now.getFullYear();
+
+            function renderMonth() {
+                const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+                const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+                const dayHeaders = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+                let html = `<div class="calendar-controls">
+                    <button id="cal-prev">◀</button>
+                    <span>${monthNames[currentMonth]} ${currentYear}</span>
+                    <button id="cal-next">▶</button>
+                </div>`;
+                html += '<div class="calendar-grid">';
+                dayHeaders.forEach(d => html += `<div class="calendar-day-header">${d}</div>`);
+
+                // Пустые ячейки до первого дня
+                for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) {
+                    html += '<div class="calendar-cell"></div>';
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayTasks = tasksByDate[dateStr] || [];
+                    let tasksHtml = '';
+                    dayTasks.forEach(t => {
+                        const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+                        const color = colors[t.priority] || '#6366f1';
+                        tasksHtml += `<span class="task-dot" style="border-left:3px solid ${color};" data-id="${t.id}">${t.title}</span>`;
+                    });
+                    html += `<div class="calendar-cell"><div class="day-num">${day}</div>${tasksHtml}</div>`;
+                }
+                html += '</div>';
+                container.innerHTML = html;
+
+                // Обработчики переключения месяцев
+                document.getElementById('cal-prev').addEventListener('click', () => {
+                    currentMonth--;
+                    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+                    renderMonth();
+                });
+                document.getElementById('cal-next').addEventListener('click', () => {
+                    currentMonth++;
+                    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+                    renderMonth();
+                });
+
+                // Клик по задаче
+                container.querySelectorAll('.task-dot').forEach(dot => {
+                    dot.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const taskId = dot.dataset.id;
+                        openTaskDetail(taskId);
+                        modal.classList.add('hidden');
+                    });
+                });
+            }
+
+            renderMonth();
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки календаря</p>';
+        }
+    });
+
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+}
+
+function initGantt() {
+    const modal = document.getElementById('gantt-modal-overlay');
+    const openBtn = document.getElementById('gantt-btn');
+    const closeBtn = document.getElementById('close-gantt-modal');
+    if (!modal || !openBtn || !closeBtn) return;
+
+    openBtn.addEventListener('click', async () => {
+        modal.classList.remove('hidden');
+        const container = document.getElementById('gantt-container');
+        container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
+
+        try {
+            const resp = await api('/api/tasks/gantt', {
+                headers: { 'Authorization': `Bearer ${currentToken}` }
+            });
+            const tasks = resp.ok ? await resp.json() : [];
+
+            const filtered = tasks.filter(t => t.dueDate);
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:40px;">Нет задач с дедлайнами в этой команде.</p>';
+                return;
+            }
+
+            // Определяем диапазон дат
+            const dates = filtered.map(t => new Date(t.dueDate));
+            const minDate = new Date(Math.min(...dates));
+            minDate.setDate(minDate.getDate() - 7); // отступ слева
+            const maxDate = new Date(Math.max(...dates));
+            maxDate.setDate(maxDate.getDate() + 1);
+            const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+
+            const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+
+            let html = '<div class="gantt-chart">';
+            filtered.forEach(t => {
+                const due = new Date(t.dueDate);
+                const start = new Date(due);
+                start.setDate(start.getDate() - 5);
+                if (start < minDate) start.setTime(minDate.getTime());
+
+                const leftPercent = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                const widthPercent = ((due - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                const color = colors[t.priority] || '#6366f1';
+
+                html += `<div class="gantt-row">
+                    <div class="gantt-task-name">${t.title}</div>
+                    <div class="gantt-bar-container">
+                        <div class="gantt-bar" style="left:${leftPercent}%; width:${widthPercent}%; background:${color};" data-id="${t.id}">
+                            <span class="gantt-bar-label">${t.assigneeName || ''}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+
+            // Клик по полосе
+            container.querySelectorAll('.gantt-bar').forEach(bar => {
+                bar.addEventListener('click', () => {
+                    const taskId = bar.dataset.id;
+                    openTaskDetail(taskId);
+                    modal.classList.add('hidden');
+                });
+            });
+
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки диаграммы</p>';
+        }
+    });
+
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+}
+
 // ================== Старт ==================
 currentToken = checkAuth();
 if (currentToken) {
@@ -745,6 +856,7 @@ if (currentToken) {
         initLeaveTeam();
         initCopyTeamIdButton();
         initCalendar();
+        initGantt();
         return loadBoard();
     }).catch(err => console.error(err));
 }
