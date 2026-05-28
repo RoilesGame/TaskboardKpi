@@ -140,7 +140,11 @@ public class TasksController : ControllerBase
         if (team == null) return NotFound("Команда не найдена");
         if (team.OwnerId != userId && !team.AllowMemberEditing)
             return Forbid("Недостаточно прав для создания задач");
-
+        
+        // Проверка дат
+        if (dto.StartDate.HasValue && dto.DueDate.HasValue && dto.DueDate.Value < dto.StartDate.Value)
+            return BadRequest("Дата окончания не может быть раньше даты начала");
+        
         var task = new TaskItem
         {
             TeamId = teamId,
@@ -186,6 +190,7 @@ public class TasksController : ControllerBase
             task.Status,
             task.Priority,
             task.DueDate,
+            StartDate = task.StartDate,   // <-- добавлено
             task.TeamId,
             task.CreatedBy,
             task.AssigneeId,
@@ -214,7 +219,13 @@ public class TasksController : ControllerBase
         if (dto.Priority != null) task.Priority = dto.Priority;
         if (dto.DueDate != null) task.DueDate = dto.DueDate;
         if (dto.StartDate != null) task.StartDate = dto.StartDate;
-
+        
+        // Проверка дат
+        var newStart = dto.StartDate ?? task.StartDate;
+        var newDue = dto.DueDate ?? task.DueDate;
+        if (newStart.HasValue && newDue.HasValue && newDue.Value < newStart.Value)
+            return BadRequest("Дата окончания не может быть раньше даты начала");
+        
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 

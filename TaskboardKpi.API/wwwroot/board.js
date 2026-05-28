@@ -607,7 +607,8 @@ async function renderGantt() {
                 if (monthKey !== currentMonth) {
                     currentMonth = monthKey;
                     const leftPercent = (i / totalDays) * 100;
-                    html += `<span class="gantt-month-marker" style="left:${leftPercent}%">${monthFormatter.format(d)}</span>`;
+                    const markerLeft = leftPercent + 0.3;
+                    html += `<span class="gantt-month-marker" style="left:${markerLeft}%">${monthFormatter.format(d)}</span>`;
                 }
             }
             html += '</div>';
@@ -616,21 +617,46 @@ async function renderGantt() {
             html += '<div class="gantt-grid-container" style="height: ' + (tasks.length * 48) + 'px;">';
 
             // Вертикальные линии сетки
-            if (division === 'weeks') {
-                for (let i = 0; i <= totalDays; i += 7) {
+            let currentMonthLine = null;
+            for (let i = 0; i <= totalDays; i++) {
+                const d = new Date(minDate);
+                d.setDate(minDate.getDate() + i);
+                const monthKey = d.getMonth() + '-' + d.getFullYear();
+                if (monthKey !== currentMonthLine) {
+                    currentMonthLine = monthKey;
                     const leftPercent = (i / totalDays) * 100;
-                    html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
+                    html += `<div class="gantt-grid-line month" style="left:${leftPercent}%"></div>`;
                 }
-            } else {
-                let currentMonthLine = null;
+            }
+
+            if (division === 'weeks') {
+                let prevMonthLine = null;
+                let daysSinceLastMonthLine = 0;
                 for (let i = 0; i <= totalDays; i++) {
                     const d = new Date(minDate);
                     d.setDate(minDate.getDate() + i);
                     const monthKey = d.getMonth() + '-' + d.getFullYear();
-                    if (monthKey !== currentMonthLine) {
-                        currentMonthLine = monthKey;
-                        const leftPercent = (i / totalDays) * 100;
-                        html += `<div class="gantt-grid-line month" style="left:${leftPercent}%"></div>`;
+                    if (prevMonthLine === null) {
+                        prevMonthLine = monthKey;
+                    }
+                    if (monthKey !== prevMonthLine) {
+                        const daysInPrevMonth = daysSinceLastMonthLine;
+                        for (let w = 1; w <= 3; w++) {
+                            const weekDay = i - daysSinceLastMonthLine + Math.round((daysInPrevMonth / 4) * w);
+                            const leftPercent = (weekDay / totalDays) * 100;
+                            html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
+                        }
+                        prevMonthLine = monthKey;
+                        daysSinceLastMonthLine = 0;
+                    }
+                    daysSinceLastMonthLine++;
+                }
+                if (daysSinceLastMonthLine > 0) {
+                    const lastMonthStart = totalDays - daysSinceLastMonthLine;
+                    for (let w = 1; w <= 3; w++) {
+                        const weekDay = lastMonthStart + Math.round((daysSinceLastMonthLine / 4) * w);
+                        const leftPercent = (weekDay / totalDays) * 100;
+                        html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
                     }
                 }
             }
@@ -642,7 +668,7 @@ async function renderGantt() {
                 html += `<div class="gantt-today-line" style="left:${todayLeft}%"></div>`;
             }
 
-            // Строки с полосами
+            // Строки с полосами (без подписи исполнителя)
             tasks.forEach((t, index) => {
                 const start = new Date(t.startDate);
                 const end = new Date(t.dueDate);
@@ -653,7 +679,6 @@ async function renderGantt() {
                 html += `
                 <div class="gantt-row">
                     <div class="gantt-bar" style="left:${left}%; width:${width}%; background:${color};" data-id="${t.id}">
-                        <span class="gantt-bar-label">${t.assigneeName || ''}</span>
                     </div>
                 </div>`;
             });
@@ -710,6 +735,11 @@ function initCreateTaskModal() {
         const priority = document.getElementById('task-priority').value;
         const dueDate = document.getElementById('task-due-date').value;
         const startDate = document.getElementById('task-start-date').value;
+
+        if (startDate && dueDate && dueDate < startDate) {
+            showToast('Дата окончания не может быть раньше даты начала');
+            return;
+        }
 
         if (!title) return;
 
@@ -822,6 +852,11 @@ function initTaskDetailModal() {
         const status = document.getElementById('detail-task-status').value;
         const dueDate = document.getElementById('detail-task-due-date').value;
         const startDate = document.getElementById('detail-task-start-date').value;
+
+        if (startDate && dueDate && dueDate < startDate) {
+            showToast('Дата окончания не может быть раньше даты начала');
+            return;
+        }
 
         const res = await api(`/api/tasks/${currentDetailTaskId}`, {
             method: 'PUT',
