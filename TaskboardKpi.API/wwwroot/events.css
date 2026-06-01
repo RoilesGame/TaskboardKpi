@@ -1,0 +1,51 @@
+/* Панель событий */
+#events-panel {
+    display: none;
+    width: 100%;
+    padding: 24px 32px;
+    background: transparent;
+    overflow-y: auto;
+}
+#events-panel.active {
+    display: block;
+}
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.event-item {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+.event-icon {
+    font-size: 20px;
+    margin-top: 2px;
+}
+.event-content {
+    flex: 1;
+    font-size: 14px;
+    color: #1e293b;
+    line-height: 1.5;
+}
+.event-content .event-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+    display: flex;
+    gap: 12px;
+}
+.event-task-link {
+    font-weight: 600;
+    color: #6366f1;
+    cursor: pointer;
+    text-decoration: none;
+}
+.event-task-link:hover {
+    text-decoration: underline;
+}

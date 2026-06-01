@@ -21,58 +21,19 @@ public class TasksController : ControllerBase
         if (team == null) return false;
         return team.OwnerId == userId || team.AllowMemberEditing;
     }
-    
-    // GET api/tasks/gantt
-    [HttpGet("gantt")]
-    public async Task<IActionResult> GetGantt()
+
+    private async Task LogEvent(Guid taskId, Guid teamId, Guid userId, string type, string? description = null)
     {
-        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
-        if (teamIdClaim == null) return Unauthorized();
-        var teamId = Guid.Parse(teamIdClaim.Value);
-
-        var tasks = await _db.Tasks
-            .Where(t => t.TeamId == teamId && t.DueDate != null)
-            .OrderBy(t => t.StartDate ?? t.DueDate)
-            .Select(t => new
-            {
-                t.Id,
-                t.Title,
-                t.Status,
-                t.Priority,
-                t.DueDate,
-                StartDate = t.StartDate ?? t.DueDate.Value.AddDays(-5),
-                AssigneeName = t.Assignee != null ? t.Assignee.FullName : "Не назначен"
-            })
-            .ToListAsync();
-
-        return Ok(tasks);
-    }
-    
-// GET api/tasks/my
-    [HttpGet("my")]
-    public async Task<IActionResult> GetMyTasks()
-    {
-        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
-        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
-        if (userIdClaim == null || teamIdClaim == null) return Unauthorized();
-
-        var userId = Guid.Parse(userIdClaim.Value);
-        var teamId = Guid.Parse(teamIdClaim.Value);
-
-        var tasks = await _db.Tasks
-            .Where(t => t.AssigneeId == userId && t.TeamId == teamId && t.DueDate != null)
-            .OrderBy(t => t.DueDate)
-            .Select(t => new
-            {
-                t.Id,
-                t.Title,
-                t.DueDate,
-                t.Status,
-                t.Priority
-            })
-            .ToListAsync();
-
-        return Ok(tasks);
+        var ev = new TaskEvent
+        {
+            TaskId = taskId,
+            TeamId = teamId,
+            UserId = userId,
+            EventType = type,
+            Description = description
+        };
+        _db.TaskEvents.Add(ev);
+        await _db.SaveChangesAsync();
     }
 
     // GET api/tasks/board
@@ -95,6 +56,7 @@ public class TasksController : ControllerBase
                 t.Status,
                 t.Priority,
                 t.DueDate,
+                StartDate = t.StartDate,
                 t.Position,
                 t.AssigneeId,
                 AssigneeName = t.Assignee != null ? t.Assignee.FullName : null
@@ -115,13 +77,20 @@ public class TasksController : ControllerBase
     [HttpPut("move/{taskId:guid}")]
     public async Task<IActionResult> MoveTask(Guid taskId, [FromBody] MoveTaskDto dto)
     {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+        var userId = Guid.Parse(userIdClaim.Value);
+
         var task = await _db.Tasks.FindAsync(taskId);
         if (task == null) return NotFound();
 
+        string oldStatus = task.Status;
         task.Status = dto.NewStatus;
         task.Position = dto.NewPosition;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await LogEvent(task.Id, task.TeamId, userId, "moved", $"Перемещена из '{oldStatus}' в '{dto.NewStatus}'");
         return Ok(task);
     }
 
@@ -140,11 +109,11 @@ public class TasksController : ControllerBase
         if (team == null) return NotFound("Команда не найдена");
         if (team.OwnerId != userId && !team.AllowMemberEditing)
             return Forbid("Недостаточно прав для создания задач");
-        
+
         // Проверка дат
         if (dto.StartDate.HasValue && dto.DueDate.HasValue && dto.DueDate.Value < dto.StartDate.Value)
             return BadRequest("Дата окончания не может быть раньше даты начала");
-        
+
         var task = new TaskItem
         {
             TeamId = teamId,
@@ -161,6 +130,7 @@ public class TasksController : ControllerBase
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync();
 
+        await LogEvent(task.Id, teamId, userId, "created", "Задача создана");
         return Ok(new { id = task.Id });
     }
 
@@ -190,7 +160,7 @@ public class TasksController : ControllerBase
             task.Status,
             task.Priority,
             task.DueDate,
-            StartDate = task.StartDate,   // <-- добавлено
+            StartDate = task.StartDate,
             task.TeamId,
             task.CreatedBy,
             task.AssigneeId,
@@ -213,22 +183,23 @@ public class TasksController : ControllerBase
         if (!await CanEditTask(task.TeamId, userId))
             return Forbid("Недостаточно прав для редактирования");
 
+        // Проверка дат
+        DateOnly? newStart = dto.StartDate ?? task.StartDate;
+        DateOnly? newDue = dto.DueDate ?? task.DueDate;
+        if (newStart.HasValue && newDue.HasValue && newDue.Value < newStart.Value)
+            return BadRequest("Дата окончания не может быть раньше даты начала");
+
         if (dto.Title != null) task.Title = dto.Title;
         if (dto.Description != null) task.Description = dto.Description;
         if (dto.Status != null) task.Status = dto.Status;
         if (dto.Priority != null) task.Priority = dto.Priority;
         if (dto.DueDate != null) task.DueDate = dto.DueDate;
         if (dto.StartDate != null) task.StartDate = dto.StartDate;
-        
-        // Проверка дат
-        var newStart = dto.StartDate ?? task.StartDate;
-        var newDue = dto.DueDate ?? task.DueDate;
-        if (newStart.HasValue && newDue.HasValue && newDue.Value < newStart.Value)
-            return BadRequest("Дата окончания не может быть раньше даты начала");
-        
+
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        await LogEvent(task.Id, task.TeamId, userId, "updated", "Задача обновлена");
         return Ok(new { message = "Задача обновлена" });
     }
 
@@ -246,12 +217,16 @@ public class TasksController : ControllerBase
         if (!await CanEditTask(task.TeamId, userId))
             return Forbid("Недостаточно прав для назначения");
 
+        var assignee = await _db.Users.FindAsync(dto.AssigneeId);
         var isMember = await _db.TeamMembers.AnyAsync(tm => tm.TeamId == task.TeamId && tm.UserId == dto.AssigneeId);
         if (!isMember) return BadRequest("Пользователь не в команде");
 
+        string prevAssignee = task.Assignee?.FullName ?? "никто";
         task.AssigneeId = dto.AssigneeId;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await LogEvent(task.Id, task.TeamId, userId, "assigned", $"Исполнитель изменён: {prevAssignee} → {assignee?.FullName}");
         return Ok(new { message = "Назначено" });
     }
 
@@ -269,9 +244,12 @@ public class TasksController : ControllerBase
         if (!await CanEditTask(task.TeamId, userId))
             return Forbid("Недостаточно прав");
 
+        string prevAssignee = task.Assignee?.FullName ?? "никто";
         task.AssigneeId = null;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await LogEvent(task.Id, task.TeamId, userId, "unassigned", $"Снят исполнитель: {prevAssignee}");
         return Ok(new { message = "Назначение снято" });
     }
 
@@ -289,9 +267,13 @@ public class TasksController : ControllerBase
         var isMember = await _db.TeamMembers.AnyAsync(tm => tm.TeamId == task.TeamId && tm.UserId == userId);
         if (!isMember) return Forbid("Вы не участник команды");
 
+        string prevAssignee = task.Assignee?.FullName ?? "никто";
         task.AssigneeId = userId;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        var user = await _db.Users.FindAsync(userId);
+        await LogEvent(task.Id, task.TeamId, userId, "self_assigned", $"Взял задачу на себя (было: {prevAssignee})");
         return Ok(new { message = "Задача взята на себя" });
     }
 
@@ -312,7 +294,89 @@ public class TasksController : ControllerBase
         task.AssigneeId = null;
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        await LogEvent(task.Id, task.TeamId, userId, "self_unassigned", "Снял задачу с себя");
         return Ok(new { message = "Назначение снято" });
+    }
+
+    // GET api/tasks/my
+    [HttpGet("my")]
+    public async Task<IActionResult> GetMyTasks()
+    {
+        var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (userIdClaim == null || teamIdClaim == null) return Unauthorized();
+
+        var userId = Guid.Parse(userIdClaim.Value);
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var tasks = await _db.Tasks
+            .Where(t => t.AssigneeId == userId && t.TeamId == teamId && t.DueDate != null)
+            .OrderBy(t => t.DueDate)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.DueDate,
+                t.Status,
+                t.Priority
+            })
+            .ToListAsync();
+
+        return Ok(tasks);
+    }
+
+    // GET api/tasks/gantt
+    [HttpGet("gantt")]
+    public async Task<IActionResult> GetGantt()
+    {
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (teamIdClaim == null) return Unauthorized();
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var tasks = await _db.Tasks
+            .Where(t => t.TeamId == teamId && t.DueDate != null)
+            .OrderBy(t => t.StartDate ?? t.DueDate)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Status,
+                t.Priority,
+                t.DueDate,
+                StartDate = t.StartDate ?? t.DueDate.Value.AddDays(-5),
+                AssigneeName = t.Assignee != null ? t.Assignee.FullName : "Не назначен"
+            })
+            .ToListAsync();
+
+        return Ok(tasks);
+    }
+
+    // GET api/tasks/events
+    [HttpGet("events")]
+    public async Task<IActionResult> GetEvents(int limit = 50)
+    {
+        var teamIdClaim = User.Claims.FirstOrDefault(c => c.Type == "teamId");
+        if (teamIdClaim == null) return Unauthorized();
+        var teamId = Guid.Parse(teamIdClaim.Value);
+
+        var events = await _db.TaskEvents
+            .Where(e => e.TeamId == teamId)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(limit)
+            .Select(e => new
+            {
+                e.Id,
+                e.TaskId,
+                TaskTitle = e.Task.Title,
+                e.EventType,
+                e.Description,
+                e.CreatedAt,
+                UserName = e.User.FullName
+            })
+            .ToListAsync();
+
+        return Ok(events);
     }
 }
 

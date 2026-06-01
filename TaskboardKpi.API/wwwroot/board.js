@@ -88,6 +88,8 @@ function initTabs() {
                 await renderCalendar();
             } else if (target === 'gantt') {
                 await renderGantt();
+            } else if (target === 'events') {
+                await renderEvents();
             }
         });
     });
@@ -564,6 +566,9 @@ async function renderGantt() {
         maxDate.setDate(maxDate.getDate() + 2);
         const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
 
+        if (typeof ganttScale === 'undefined') {
+            window.ganttScale = 30; // px на день по умолчанию
+        }
         if (typeof ganttDivision === 'undefined') {
             window.ganttDivision = 'weeks';
         }
@@ -571,6 +576,8 @@ async function renderGantt() {
         function buildGantt(division) {
             window.ganttDivision = division;
             const colors = { low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444' };
+            const scale = window.ganttScale;
+            const totalWidth = totalDays * scale;
             let html = '';
 
             // Панель управления
@@ -597,7 +604,7 @@ async function renderGantt() {
             html += '<div class="gantt-right-col">';
 
             // Шкала месяцев
-            html += '<div class="gantt-timescale">';
+            html += '<div class="gantt-timescale" style="width:' + totalWidth + 'px;">';
             const monthFormatter = new Intl.DateTimeFormat('ru', { month: 'short' });
             let currentMonth = null;
             for (let i = 0; i <= totalDays; i++) {
@@ -606,15 +613,14 @@ async function renderGantt() {
                 const monthKey = d.getMonth() + '-' + d.getFullYear();
                 if (monthKey !== currentMonth) {
                     currentMonth = monthKey;
-                    const leftPercent = (i / totalDays) * 100;
-                    const markerLeft = leftPercent + 0.3;
-                    html += `<span class="gantt-month-marker" style="left:${markerLeft}%">${monthFormatter.format(d)}</span>`;
+                    const left = i * scale;
+                    html += `<span class="gantt-month-marker" style="left:${left + 4}px">${monthFormatter.format(d)}</span>`;
                 }
             }
             html += '</div>';
 
             // Сетка и полосы
-            html += '<div class="gantt-grid-container" style="height: ' + (tasks.length * 48) + 'px;">';
+            html += '<div class="gantt-grid-container" style="width:' + totalWidth + 'px; height:' + (tasks.length * 48) + 'px;">';
 
             // Вертикальные линии сетки
             let currentMonthLine = null;
@@ -624,8 +630,8 @@ async function renderGantt() {
                 const monthKey = d.getMonth() + '-' + d.getFullYear();
                 if (monthKey !== currentMonthLine) {
                     currentMonthLine = monthKey;
-                    const leftPercent = (i / totalDays) * 100;
-                    html += `<div class="gantt-grid-line month" style="left:${leftPercent}%"></div>`;
+                    const left = i * scale;
+                    html += `<div class="gantt-grid-line month" style="left:${left}px"></div>`;
                 }
             }
 
@@ -643,8 +649,8 @@ async function renderGantt() {
                         const daysInPrevMonth = daysSinceLastMonthLine;
                         for (let w = 1; w <= 3; w++) {
                             const weekDay = i - daysSinceLastMonthLine + Math.round((daysInPrevMonth / 4) * w);
-                            const leftPercent = (weekDay / totalDays) * 100;
-                            html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
+                            const left = weekDay * scale;
+                            html += `<div class="gantt-grid-line week" style="left:${left}px"></div>`;
                         }
                         prevMonthLine = monthKey;
                         daysSinceLastMonthLine = 0;
@@ -655,8 +661,8 @@ async function renderGantt() {
                     const lastMonthStart = totalDays - daysSinceLastMonthLine;
                     for (let w = 1; w <= 3; w++) {
                         const weekDay = lastMonthStart + Math.round((daysSinceLastMonthLine / 4) * w);
-                        const leftPercent = (weekDay / totalDays) * 100;
-                        html += `<div class="gantt-grid-line week" style="left:${leftPercent}%"></div>`;
+                        const left = weekDay * scale;
+                        html += `<div class="gantt-grid-line week" style="left:${left}px"></div>`;
                     }
                 }
             }
@@ -664,21 +670,21 @@ async function renderGantt() {
             // Линия "Сегодня"
             const today = new Date();
             if (today >= minDate && today <= maxDate) {
-                const todayLeft = ((today - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-                html += `<div class="gantt-today-line" style="left:${todayLeft}%"></div>`;
+                const todayLeft = ((today - minDate) / (1000 * 60 * 60 * 24)) * scale;
+                html += `<div class="gantt-today-line" style="left:${todayLeft}px"></div>`;
             }
 
-            // Строки с полосами (без подписи исполнителя)
+            // Строки с полосами
             tasks.forEach((t, index) => {
                 const start = new Date(t.startDate);
                 const end = new Date(t.dueDate);
-                const left = ((start - minDate) / (1000 * 60 * 60 * 24)) / totalDays * 100;
-                const width = ((end - start) / (1000 * 60 * 60 * 24)) / totalDays * 100;
+                const left = ((start - minDate) / (1000 * 60 * 60 * 24)) * scale;
+                const width = ((end - start) / (1000 * 60 * 60 * 24)) * scale;
                 const color = colors[t.priority] || '#6366f1';
 
                 html += `
                 <div class="gantt-row">
-                    <div class="gantt-bar" style="left:${left}%; width:${width}%; background:${color};" data-id="${t.id}">
+                    <div class="gantt-bar" style="left:${left}px; width:${width}px; background:${color};" data-id="${t.id}">
                     </div>
                 </div>`;
             });
@@ -703,6 +709,21 @@ async function renderGantt() {
                     openTaskDetail(bar.dataset.id);
                 });
             });
+
+            // Масштабирование колесом мыши
+            const rightCol = container.querySelector('.gantt-right-col');
+            if (rightCol && !rightCol._wheelBound) {
+                rightCol._wheelBound = true;
+                rightCol.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    if (e.deltaY < 0) {
+                        window.ganttScale = Math.min(200, window.ganttScale + 5);
+                    } else {
+                        window.ganttScale = Math.max(10, window.ganttScale - 5);
+                    }
+                    buildGantt(window.ganttDivision);
+                });
+            }
         }
 
         buildGantt(window.ganttDivision || 'weeks');
@@ -711,7 +732,7 @@ async function renderGantt() {
         console.error(err);
         container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки диаграммы</p>';
     }
-}
+}   
 
 // ================== Создание задачи ==================
 function initCreateTaskModal() {
@@ -1046,6 +1067,66 @@ function initLeaveTeam() {
             overlay.classList.add('hidden');
         }
     });
+}
+
+async function renderEvents() {
+    const container = document.getElementById('events-container');
+    if (!container) return;
+    container.innerHTML = '<p style="text-align:center;padding:40px;">Загрузка...</p>';
+
+    try {
+        const resp = await api('/api/tasks/events?limit=50', {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const events = resp.ok ? await resp.json() : [];
+        if (!events.length) {
+            container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:40px;">Нет событий</p>';
+            return;
+        }
+
+        const icons = {
+            created: '➕',
+            updated: '✏️',
+            moved: '↔️',
+            assigned: '👤',
+            self_assigned: '🙋',
+            unassigned: '❌',
+            self_unassigned: '🙅'
+        };
+
+        let html = '<div class="events-list">';
+        events.forEach(ev => {
+            const icon = icons[ev.eventType] || '📌';
+            const time = new Date(ev.createdAt).toLocaleString('ru-RU');
+            html += `
+            <div class="event-item">
+                <div class="event-icon">${icon}</div>
+                <div class="event-content">
+                    <div>
+                        <span class="event-task-link" data-task-id="${ev.taskId}">${escapeHtml(ev.taskTitle)}</span>
+                        &mdash; ${escapeHtml(ev.description || ev.eventType)}
+                    </div>
+                    <div class="event-meta">
+                        <span>${ev.userName || 'Система'}</span>
+                        <span>${time}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+
+        // Клик по названию задачи открывает её
+        container.querySelectorAll('.event-task-link').forEach(link => {
+            link.addEventListener('click', () => {
+                openTaskDetail(link.dataset.taskId);
+            });
+        });
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p style="text-align:center;color:red;padding:40px;">Ошибка загрузки событий</p>';
+    }
 }
 
 // ================== Выход из профиля ==================

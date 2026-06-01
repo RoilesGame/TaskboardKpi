@@ -1,4 +1,4 @@
-/* ДИАГРАММА ГАНТА (исправленное выравнивание) */
+/* ДИАГРАММА ГАНТА (с масштабированием и скроллом) */
 #gantt-panel {
     display: none;
     width: 100%;
@@ -62,7 +62,7 @@
     font-weight: 600;
     color: #1e293b;
     padding: 0 16px;
-    height: 48px;                /* точно как gantt-row */
+    height: 48px;
     line-height: 48px;
     border-bottom: 1px solid #f3f4f6;
     white-space: nowrap;
@@ -73,7 +73,7 @@
 /* Правая колонка (диаграмма) */
 .gantt-right-col {
     flex: 1;
-    overflow-x: auto;
+    overflow-x: auto;            /* <-- скролл, если не помещается */
     background: #ffffff;
 }
 
@@ -90,10 +90,7 @@
     font-size: 12px;
     font-weight: 600;
     color: #4b5563;
-    transform: translateX(0);
-    left: auto;
     white-space: nowrap;
-    padding-left: 6px;
 }
 
 /* Контейнер сетки и полос */
@@ -120,18 +117,6 @@
 }
 .gantt-bar:hover {
     opacity: 0.85;
-}
-
-/* Подпись на полосе */
-.gantt-bar-label {
-    position: absolute;
-    right: -60px;
-    font-size: 11px;
-    color: #4b5563;
-    top: 50%;
-    transform: translateY(-50%);
-    white-space: nowrap;
-    font-weight: 500;
 }
 
 /* Вертикальные линии сетки */

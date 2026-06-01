@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<TaskComment> TaskComments => Set<TaskComment>();
+    public DbSet<TaskEvent> TaskEvents => Set<TaskEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -84,6 +85,20 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TeamMember>()
             .HasIndex(tm => new { tm.TeamId, tm.UserId })
             .IsUnique();
+        
+        modelBuilder.Entity<TaskEvent>(entity =>
+        {
+            entity.Property(e => e.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.HasOne(e => e.Task)
+                .WithMany()
+                .HasForeignKey(e => e.TaskId);
+            entity.HasOne(e => e.Team)
+                .WithMany()
+                .HasForeignKey(e => e.TeamId);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId);
+        });
     }
 }
 
