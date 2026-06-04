@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Администрирование</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-container {
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .admin-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            background: white;
+            border-radius: 8px;
+            padding: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .admin-tab {
+            padding: 8px 20px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .admin-tab.active {
+            background: #6366f1;
+            color: white;
+        }
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .admin-table th, .admin-table td {
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 14px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .admin-table th {
+            background: #f9fafb;
+            color: #4b5563;
+            font-weight: 600;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            background: white;
+        }
+        .btn-danger {
+            background: #fee2e2;
+            color: #ef4444;
+            border-color: #fecaca;
+        }
+        .btn-success {
+            background: #dcfce7;
+            color: #22c55e;
+            border-color: #bbf7d0;
+        }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-admin { background: #ede9fe; color: #6366f1; }
+        .badge-user { background: #f3f4f6; color: #374151; }
+        .badge-blocked { background: #fee2e2; color: #ef4444; }
+    </style>
+</head>
+<body>
+<div class="admin-container">
+    <div class="admin-header">
+        <h1>Панель администратора</h1>
+        <button onclick="logout()" class="btn-sm">Выйти</button>
+    </div>
+
+    <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="users">Пользователи</button>
+        <button class="admin-tab" data-tab="teams">Команды</button>
+    </div>
+
+    <div id="tab-content"></div>
+</div>
+
+<script>
+    const API_BASE = window.API_BASE_URL || '';
+    function api(path, options = {}) {
+        return fetch(API_BASE + path, options);
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login.html';
+
+    function logout() {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+    }
+
+    async function loadUsers() {
+        const resp = await api('/api/admin/users', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!resp.ok) { document.getElementById('tab-content').innerHTML = '<p>Нет доступа</p>'; return; }
+        const users = await resp.json();
+
+        let html = '<table class="admin-table"><tr><th>Имя</th><th>Email</th><th>Роль</th><th>Статус</th><th>Действия</th></tr>';
+        users.forEach(u => {
+            html += `<tr>
+                <td>${u.fullName}</td>
+                <td>${u.email}</td>
+                <td><span class="badge ${u.role === 'global_admin' ? 'badge-admin' : 'badge-user'}">${u.role}</span></td>
+                <td>${u.isBlocked ? '<span class="badge badge-blocked">Заблокирован</span>' : 'Активен'}</td>
+                <td>
+                    <button class="btn-sm ${u.isBlocked ? 'btn-success' : 'btn-danger'}" onclick="toggleBlock('${u.id}')">
+                        ${u.isBlocked ? 'Разблокировать' : 'Заблокировать'}
+                    </button>
+                </td>
+            </tr>`;
+        });
+        html += '</table>';
+        document.getElementById('tab-content').innerHTML = html;
+    }
+
+    async function toggleBlock(userId) {
+        await api(`/api/admin/users/${userId}/block`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        loadUsers();
+    }
+
+    async function loadTeams() {
+        const resp = await api('/api/admin/teams', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!resp.ok) { document.getElementById('tab-content').innerHTML = '<p>Нет доступа</p>'; return; }
+        const teams = await resp.json();
+
+        let html = '<table class="admin-table"><tr><th>Название</th><th>Проект</th><th>Участников</th><th>Публичная</th><th>Действия</th></tr>';
+        teams.forEach(t => {
+            html += `<tr>
+                <td>${t.name}</td>
+                <td>${t.projectName}</td>
+                <td>${t.membersCount}</td>
+                <td>${t.isPublic ? 'Да' : 'Нет'}</td>
+                <td><button class="btn-sm btn-danger" onclick="deleteTeam('${t.id}')">Удалить</button></td>
+            </tr>`;
+        });
+        html += '</table>';
+        document.getElementById('tab-content').innerHTML = html;
+    }
+
+    async function deleteTeam(teamId) {
+        if (!confirm('Удалить команду безвозвратно?')) return;
+        await api(`/api/admin/teams/${teamId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        loadTeams();
+    }
+
+    // Вкладки
+    document.querySelector('.admin-tabs').addEventListener('click', e => {
+        if (e.target.classList.contains('admin-tab')) {
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            if (e.target.dataset.tab === 'users') loadUsers();
+            else loadTeams();
+        }
+    });
+
+    // Загрузка по умолчанию
+    loadUsers();
+</script>
+</body>
+</html>

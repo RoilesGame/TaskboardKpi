@@ -31,9 +31,10 @@ body {
     display: flex;
     flex-direction: column;
     padding: 24px 16px;
-    gap: 32px;
     box-shadow: 1px 0 4px rgba(0, 0, 0, 0.04);
     flex-shrink: 0;
+    height: 100vh;           /* явно задаём высоту экрана */
+    overflow: hidden;        /* убираем общий скролл сайдбара */
 }
 
 .sidebar-resizer {
@@ -51,21 +52,24 @@ body {
     opacity: 0.6;
 }
 
-/* Профиль */
 .profile {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
+    padding: 16px 0 20px;
+    flex-shrink: 0;
+    margin-top: 10px;   /* небольшой отступ, чтобы не перекрывало кнопку */
 }
 
+
 .avatar {
-    width: 64px;
-    height: 64px;
+    width: 72px;             /* чуть крупнее */
+    height: 72px;
     border-radius: 50%;
     background: #6366f1;
     color: white;
-    font-size: 24px;
+    font-size: 28px;         /* крупнее буква инициала */
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -74,11 +78,12 @@ body {
 }
 
 .user-name {
-    font-size: 15px;
+    font-size: 16px;         /* немного крупнее */
     font-weight: 600;
     color: #1e293b;
     text-align: center;
     word-break: break-word;
+    max-width: 100%;         /* чтобы не вылезало за границы */
 }
 
 /* Кнопки в панели */
@@ -89,6 +94,7 @@ body {
 }
 
 .sidebar-group {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -163,7 +169,7 @@ body {
     font-size: 14px;
     font-weight: 600;
     color: #4b5563;
-    text-transform: uppercase;
+    /*text-transform: uppercase;*/
     letter-spacing: 0.5px;
 }
 
@@ -355,17 +361,94 @@ body {
     color: #4b5563;
 }
 
-/* Секция команд в сайдбаре */
-.teams-section {
+/* Проекты и команды */
+.project-group {
+    margin-bottom: 8px;
+}
+.project-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    background: #f3f4f6;
+    color: #1e293b;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+    user-select: none;
+    margin-bottom: 4px;
+}
+.project-header:hover {
+    background: #e5e7eb;
+}
+.project-arrow {
+    font-size: 12px;
+    width: 16px;
+    text-align: center;
+}
+.project-name {
     flex: 1;
-    overflow-y: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.project-teams {
+    margin-left: 12px;
+    margin-top: 2px;
+}
+/* Элемент команды (обновлённый) */
+.team-item {
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 2px;
+}
+.team-item:hover {
+    background: #f3f4f6;
+}
+.team-item.active {
+    background: #e0e7ff;
+    font-weight: 500;
+}
+.team-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 6px;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+.team-badge.owner {
+    background: #6366f1;
+    color: white;
+}
+.team-badge.member {
+    background: #e5e7eb;
+    color: #374151;
 }
 
-.teams-section h3 {
+.teams-section {
+    flex: 1;
+    max-height: 500px;
+    min-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
     font-size: 12px;
     font-weight: 600;
     color: #6b7280;
-    text-transform: uppercase;
+    /*text-transform: uppercase;*/
     letter-spacing: 0.5px;
     margin-bottom: 8px;
 }
@@ -430,7 +513,11 @@ body {
 
 /* Секция участников */
 .members-section {
-    margin-top: 16px;
+    flex: 1;                /* забирает вторую половину доступного места */
+    overflow-y: auto;       /* вертикальный скролл */
+    min-height: 0;          /* разрешаем сжиматься */
+    margin-bottom: 16px;    /* отступ перед кнопками */
+    margin-top: 0;
 }
 
 .members-section h3 {
@@ -601,4 +688,174 @@ body {
 .tab.active {
     background: #6366f1;
     color: white;
+}
+
+/* Панель событий */
+#events-panel {
+    padding: 24px 32px;
+    overflow-y: auto;
+}
+
+.events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 800px;
+}
+
+.event-item {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    transition: box-shadow 0.2s;
+}
+.event-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.event-icon {
+    font-size: 24px;
+    line-height: 1;
+    min-width: 32px;
+    text-align: center;
+}
+
+.event-content {
+    flex: 1;
+    font-size: 14px;
+    color: #1e293b;
+    line-height: 1.6;
+}
+
+.event-content .event-description {
+    font-weight: 500;
+}
+
+.event-content .event-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.event-task-link {
+    font-weight: 600;
+    color: #6366f1;
+    cursor: pointer;
+    text-decoration: none;
+}
+.event-task-link:hover {
+    text-decoration: underline;
+}
+
+.event-time {
+    white-space: nowrap;
+}
+
+.event-author {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Адаптив для маленьких экранов */
+@media (max-width: 600px) {
+    .event-item {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .event-icon {
+        font-size: 20px;
+    }
+}
+
+/* Горизонтальный ряд квадратных иконок */
+.sidebar-action-icons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 16px;
+}
+
+.btn-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    color: white;
+}
+.btn-icon:active {
+    transform: scale(0.95);
+}
+
+.btn-icon-primary {
+    background: #6366f1;
+}
+.btn-icon-primary:hover {
+    background: #4f46e5;
+}
+
+.btn-icon-secondary {
+    background: #ffffff;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.btn-icon-secondary:hover {
+    background: #f8fafc;
+}
+
+.btn-icon-logout {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #fee2e2;
+    color: #ef4444;
+    font-size: 18px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-icon-logout:hover {
+    background: #fecaca;
+}
+
+/* Кнопка выхода (абсолютная) */
+.sidebar {
+    position: relative;   /* для абсолютного позиционирования кнопки выхода */
+}
+.logout-btn-absolute {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: background 0.2s;
+    z-index: 10;
+}
+.logout-btn-absolute:hover {
+    background: #fecaca;
 }

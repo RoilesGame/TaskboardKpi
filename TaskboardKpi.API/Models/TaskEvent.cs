@@ -1,8 +1,7 @@
 namespace TaskboardKpi.API.Models;
 
-public class TaskEvent
+public class TaskEvent : BaseEntity
 {
-    public Guid Id { get; set; }
     public Guid TaskId { get; set; }
     public TaskItem Task { get; set; } = null!;
     public Guid TeamId { get; set; }
@@ -11,5 +10,4 @@ public class TaskEvent
     public User User { get; set; } = null!;
     public string EventType { get; set; } = string.Empty;
     public string? Description { get; set; }
-    public DateTime CreatedAt { get; set; }
 }

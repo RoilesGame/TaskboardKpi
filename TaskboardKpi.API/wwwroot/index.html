@@ -11,21 +11,33 @@
 <body>
 <div class="layout">
     <aside class="sidebar">
+        <!-- Кнопка выхода в левом верхнем углу -->
+        <button id="logout-btn" class="logout-btn-absolute" title="Выйти">↩</button>
+
+        <!-- Профиль без кнопки выхода -->
         <div class="profile">
             <div class="avatar" id="user-avatar">?</div>
             <span class="user-name" id="user-name">Загрузка...</span>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;" id="user-role"></div>
         </div>
 
+        <!-- Список проектов и команд -->
         <div class="teams-section">
             <h3>Команды</h3>
             <ul id="teams-list" class="teams-list"></ul>
         </div>
 
-        <!-- Группа 1: копировать ID, новая задача (календарь и Ганта теперь вкладками) -->
+        <!-- Горизонтальный ряд иконок -->
+        <div class="sidebar-action-icons">
+            <button id="new-task-btn" class="btn-icon btn-icon-primary" title="Новая задача">+</button>
+            <button id="copy-team-id-btn" class="btn-icon btn-icon-secondary" title="Копировать ID команды">⧉</button>
+            <button id="leave-team-btn" class="btn-icon btn-icon-secondary" title="Покинуть команду">⏏</button>
+        </div>
+
+        <!-- Админ/HR ссылки -->
         <div class="sidebar-group">
-            <button id="new-task-btn" class="btn-primary" style="width:100%;">Новая задача</button>
-            <button id="copy-team-id-btn" class="btn-secondary" style="width:100%;">Копировать ID команды</button>
-            <button id="leave-team-btn" class="btn-secondary" style="width:100%;">Покинуть команду</button>
+            <a id="admin-link" href="/admin.html" style="display:none;" class="btn-secondary" style="width:100%;">Панель администратора</a>
+            <a id="hr-link" href="/hr.html" style="display:none;" class="btn-secondary" style="width:100%;">Управление персоналом</a>
         </div>
 
         <!-- Список участников -->
@@ -34,14 +46,14 @@
             <ul id="members-list" class="members-list"></ul>
         </div>
 
-        <!-- Группа 2: создание, присоединение, выход -->
+        <!-- Группа 2 (создание, присоединение) -->
         <div class="sidebar-group" style="margin-top: auto;">
             <button id="create-team-btn" class="btn-secondary" style="width:100%;">+ Создать команду</button>
             <button id="join-team-btn" class="btn-secondary" style="width:100%;">Присоединиться</button>
-            <button id="logout-btn" class="btn-secondary" style="width:100%;">Выйти</button>
         </div>
     </aside>
 
+    <!-- Разделитель для изменения ширины панели -->
     <div class="sidebar-resizer" id="sidebar-resizer"></div>
 
     <div class="main-content">
@@ -49,52 +61,33 @@
             <button class="tab active" data-tab="board">Доска</button>
             <button class="tab" data-tab="calendar">Календарь</button>
             <button class="tab" data-tab="gantt">Диаграмма Ганта</button>
+            <button class="tab" data-tab="events">События</button>
         </div>
 
         <div id="board-panel" class="panel active">
             <div class="board">
                 <div class="column" data-status="backlog">
-                    <div class="column-header">
-                        <h2>Бэклог</h2>
-                        <span class="task-count" id="backlog-count">0</span>
-                    </div>
+                    <div class="column-header"><h2>Бэклог</h2><span class="task-count" id="backlog-count">0</span></div>
                     <div class="task-list" id="backlog"></div>
                 </div>
                 <div class="column" data-status="in_progress">
-                    <div class="column-header">
-                        <h2>В работе</h2>
-                        <span class="task-count" id="in_progress-count">0</span>
-                    </div>
+                    <div class="column-header"><h2>В работе</h2><span class="task-count" id="in_progress-count">0</span></div>
                     <div class="task-list" id="in_progress"></div>
                 </div>
                 <div class="column" data-status="review">
-                    <div class="column-header">
-                        <h2>Ревью</h2>
-                        <span class="task-count" id="review-count">0</span>
-                    </div>
+                    <div class="column-header"><h2>Ревью</h2><span class="task-count" id="review-count">0</span></div>
                     <div class="task-list" id="review"></div>
                 </div>
                 <div class="column" data-status="done">
-                    <div class="column-header">
-                        <h2>Готово</h2>
-                        <span class="task-count" id="done-count">0</span>
-                    </div>
+                    <div class="column-header"><h2>Готово</h2><span class="task-count" id="done-count">0</span></div>
                     <div class="task-list" id="done"></div>
                 </div>
             </div>
         </div>
 
-        <div id="calendar-panel" class="panel">
-            <div id="calendar-container"></div>
-        </div>
-
-        <div id="gantt-panel" class="panel">
-            <div id="gantt-container"></div>
-        </div>
-
-        <div id="events-panel" class="panel">
-            <div id="events-container" style="padding: 24px 32px;"></div>
-        </div>
+        <div id="calendar-panel" class="panel"><div id="calendar-container"></div></div>
+        <div id="gantt-panel" class="panel"><div id="gantt-container"></div></div>
+        <div id="events-panel" class="panel"><div id="events-container" style="padding:24px 32px;"></div></div>
     </div>
 </div>
 
@@ -114,13 +107,10 @@
                 <option value="high">Высокий</option>
                 <option value="critical">Критический</option>
             </select>
-            
-            <label>Дата начала (необязательно)</label>
+            <label>Дата начала</label>
             <input type="date" id="task-start-date">
-            
             <label>Срок выполнения</label>
             <input type="date" id="task-due-date">
-            
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-modal">Отмена</button>
@@ -152,14 +142,10 @@
                 <option value="review">Ревью</option>
                 <option value="done">Готово</option>
             </select>
-
             <label>Дата начала</label>
             <input type="date" id="detail-task-start-date">
-            
-            
             <label>Срок выполнения</label>
             <input type="date" id="detail-task-due-date">
-            
             <label>Исполнитель</label>
             <div id="assignee-container">
                 <span id="current-assignee-name" style="margin-right: 8px;">Не назначен</span>
@@ -172,6 +158,7 @@
             </div>
             <div class="modal-actions">
                 <button type="submit" id="detail-save-btn">Сохранить</button>
+                <button type="button" id="delete-task-btn" class="btn-danger" style="display:none;">Удалить</button>
                 <button type="button" id="close-detail-modal">Отмена</button>
             </div>
         </form>
@@ -185,14 +172,6 @@
         <form id="create-team-form">
             <label>Название команды</label>
             <input type="text" id="team-name" required>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="allow-edit">
-                <span>Разрешить участникам создавать и редактировать задачи</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="allow-invites">
-                <span>Участники могут приглашать других</span>
-            </label>
             <div class="modal-actions">
                 <button type="submit">Создать</button>
                 <button type="button" id="close-team-modal">Отмена</button>
@@ -201,7 +180,7 @@
     </div>
 </div>
 
-<!-- Модальное окно: присоединиться к команде по ID -->
+<!-- Присоединиться -->
 <div id="join-modal-overlay" class="modal-overlay hidden">
     <div class="modal">
         <h3>Присоединиться к команде</h3>
@@ -216,11 +195,11 @@
     </div>
 </div>
 
-<!-- Модальное окно подтверждения выхода из команды -->
+<!-- Подтверждение выхода -->
 <div id="confirm-leave-overlay" class="modal-overlay hidden">
     <div class="modal" style="max-width: 400px;">
         <h3>Покинуть команду?</h3>
-        <p style="margin: 16px 0; color: #4b5563;">Вы уверены, что хотите покинуть текущую команду? Это действие нельзя отменить.</p>
+        <p style="margin: 16px 0; color: #4b5563;">Вы уверены, что хотите покинуть текущую команду?</p>
         <div class="modal-actions">
             <button type="button" id="confirm-leave-btn" style="background:#ef4444; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">Покинуть</button>
             <button type="button" id="cancel-leave-btn" style="background:transparent; border:1px solid #d1d5db; color:#4b5563; padding:8px 16px; border-radius:8px; cursor:pointer;">Отмена</button>
@@ -229,6 +208,82 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="config.js"></script>
+<script src="utils.js"></script>
+<script src="state.js"></script>
+<script src="profile.js"></script>
+<script src="teams.js"></script>
+<script src="members.js"></script>
+<script src="tasks.js"></script>
 <script src="board.js"></script>
+<script src="calendar.js"></script>
+<script src="gantt.js"></script>
+<script src="events.js"></script>
+<script>
+    // Старт приложения
+    currentToken = localStorage.getItem('token');
+    if (!currentToken) window.location.href = '/login.html';
+
+    currentUserId = getUserIdFromToken(currentToken);
+    currentUserRole = getGlobalRoleFromToken(currentToken);
+
+    (async () => {
+        await loadProfile();
+        await loadTeams();
+
+        if (currentTeamId) {
+            const membersResp = await api('/api/teams/members', { headers: { 'Authorization': `Bearer ${currentToken}` } });
+            if (membersResp.ok) {
+                const members = await membersResp.json();
+                const me = members.find(m => m.id === currentUserId);
+                if (me) currentTeamRole = me.role;
+            }
+        }
+
+        initTabs();
+        initLogout();
+        initSortable();
+        initCreateTaskModal();
+        initTaskDetailModal();
+        initCreateTeamModal();
+        initJoinTeamModal();
+        initCopyTeamIdButton();
+        initLeaveTeam();
+        initResizer();
+        await loadMembers();
+        await loadBoard();
+
+        // Показать/скрыть кнопку "Новая задача"
+        const newTaskBtn = document.getElementById('new-task-btn');
+        if (newTaskBtn) {
+            const canCreate = currentTeamRole === 'owner' || currentTeamRole === 'editor' || currentUserRole === 'global_admin';
+            newTaskBtn.style.display = canCreate ? 'block' : 'none';
+        }
+    })();
+
+    function initTabs() {
+        const tabs = document.querySelectorAll('.tab');
+        const panels = {
+            board: document.getElementById('board-panel'),
+            calendar: document.getElementById('calendar-panel'),
+            gantt: document.getElementById('gantt-panel'),
+            events: document.getElementById('events-panel')
+        };
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', async () => {
+                const target = tab.dataset.tab;
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                Object.values(panels).forEach(p => p?.classList.remove('active'));
+                if (panels[target]) panels[target].classList.add('active');
+
+                if (target === 'calendar') await renderCalendar();
+                else if (target === 'gantt') await renderGantt();
+                else if (target === 'events') await renderEvents();
+            });
+        });
+    }
+</script>
 </body>
 </html>

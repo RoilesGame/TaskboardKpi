@@ -7,5 +7,6 @@ public class TeamMember
     public Team Team { get; set; } = null!;
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
-    public DateTime JoinedAt { get; set; }
+    public string Role { get; set; } = "executor";
+    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
 }
