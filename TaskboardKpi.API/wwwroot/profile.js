@@ -1,4 +1,3 @@
-// Профиль и выход
 async function loadProfile() {
     try {
         const resp = await api('/api/auth/me', {
@@ -9,7 +8,7 @@ async function loadProfile() {
         document.getElementById('user-name').textContent = profile.fullName;
         document.getElementById('user-avatar').textContent = profile.fullName.charAt(0).toUpperCase();
         currentUserRole = profile.role || 'user';
-        // Показать ссылки на админ/HR, если доступно
+
         const adminLink = document.getElementById('admin-link');
         const hrLink = document.getElementById('hr-link');
         if (adminLink) adminLink.style.display = (currentUserRole === 'global_admin') ? 'block' : 'none';

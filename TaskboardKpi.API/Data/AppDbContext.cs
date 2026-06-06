@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
     public DbSet<TaskComment> TaskComments => Set<TaskComment>();
     public DbSet<TaskEvent> TaskEvents => Set<TaskEvent>();
+    public DbSet<TaskFile> TaskFiles => Set<TaskFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -104,6 +105,17 @@ public class AppDbContext : DbContext
             .HasOne(te => te.User)
             .WithMany()
             .HasForeignKey(te => te.UserId);
+        
+        modelBuilder.Entity<TaskFile>(entity =>
+        {
+            entity.Property(f => f.Id).HasDefaultValueSql("gen_random_uuid()");
+            entity.HasOne(f => f.Task)
+                .WithMany()
+                .HasForeignKey(f => f.TaskId);
+            entity.HasOne(f => f.Uploader)
+                .WithMany()
+                .HasForeignKey(f => f.UploadedBy);
+        });
     }
 }
 

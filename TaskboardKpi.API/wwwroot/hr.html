@@ -110,7 +110,6 @@
         window.location.href = '/login.html';
     }
 
-    // Вкладки
     document.querySelector('.hr-tabs').addEventListener('click', e => {
         if (e.target.classList.contains('hr-tab')) {
             document.querySelectorAll('.hr-tab').forEach(t => t.classList.remove('active'));
@@ -120,7 +119,6 @@
         }
     });
 
-    // === ПОЛЬЗОВАТЕЛИ ===
     async function loadUsers() {
         const resp = await api('/api/hr/users', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -145,10 +143,8 @@
         document.getElementById('tab-content').innerHTML = html;
     }
 
-    // === УЧАСТНИКИ КОМАНД ===
     let allTeams = [];
     async function loadTeamMembers() {
-        // Загрузим список команд для выбора
         const teamsResp = await api('/api/hr/teams', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -172,7 +168,6 @@
         const teamId = document.getElementById('teamSelect').value;
         if (!teamId) { document.getElementById('team-members-table').innerHTML = ''; return; }
 
-        // Получаем участников команды через обычный TeamsController
         const resp = await api(`/api/teams/members?teamId=${teamId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -224,10 +219,7 @@
         const email = prompt('Введите email пользователя:');
         if (!email) return;
         const role = prompt('Введите роль (editor, executor, observer):', 'executor');
-        // Ищем пользователя по email (можно сделать отдельный метод, но для простоты запросим userId через список)
-        // Быстрый вариант: запросить всех пользователей и найти. Но лучше иметь эндпоинт поиска. Пока сделаем через ручной ввод userId?
-        // Упростим: пусть HR вводит UUID пользователя. Но лучше поиск по email. Добавим временный эндпоинт в HR или используем существующий поиск? 
-        // Сделаем небольшой хак: покажем prompt для userId. В реальном проекте нужно реализовать поиск.
+
         const userId = prompt('Введите UUID пользователя (найдите в списке пользователей):');
         if (!userId) return;
         await api(`/api/hr/users/${userId}/add-to-team`, {
@@ -237,8 +229,7 @@
         });
         renderTeamMembers();
     }
-
-    // Загрузка по умолчанию
+    
     loadUsers();
 </script>
 </body>

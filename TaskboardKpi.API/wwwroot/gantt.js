@@ -1,4 +1,3 @@
-// Диаграмма Ганта
 async function renderGantt() {
     const container = document.getElementById('gantt-container');
     if (!container) return;
@@ -38,7 +37,7 @@ async function renderGantt() {
             </div>`;
 
             html += '<div class="gantt-chart">';
-            // Левая колонка с названиями задач
+
             html += '<div class="gantt-left-col">';
             html += '<div class="gantt-left-header">Задача</div>';
             tasks.forEach(t => {
@@ -46,9 +45,8 @@ async function renderGantt() {
             });
             html += '</div>';
 
-            // Правая колонка с диаграммой
             html += '<div class="gantt-right-col">';
-            // Шкала месяцев
+
             html += '<div class="gantt-timescale" style="width:' + totalWidth + 'px;">';
             const monthFormatter = new Intl.DateTimeFormat('ru', { month: 'short' });
             let currentMonth = null;
@@ -64,10 +62,8 @@ async function renderGantt() {
             }
             html += '</div>';
 
-            // Сетка и полосы
             html += '<div class="gantt-grid-container" style="width:' + totalWidth + 'px; height:' + (tasks.length * 48) + 'px;">';
 
-            // Вертикальные линии сетки
             let currentMonthLine = null;
             for (let i = 0; i <= totalDays; i++) {
                 const d = new Date(minDate);
@@ -110,14 +106,12 @@ async function renderGantt() {
                 }
             }
 
-            // Линия "Сегодня"
             const today = new Date();
             if (today >= minDate && today <= maxDate) {
                 const todayLeft = ((today - minDate) / (1000 * 60 * 60 * 24)) * scale;
                 html += `<div class="gantt-today-line" style="left:${todayLeft}px"></div>`;
             }
 
-            // Строки с полосами
             tasks.forEach((t, index) => {
                 const start = new Date(t.startDate);
                 const end = new Date(t.dueDate);
@@ -132,13 +126,12 @@ async function renderGantt() {
                 </div>`;
             });
 
-            html += '</div>'; // конец grid-container
-            html += '</div>'; // конец right-col
-            html += '</div>'; // конец gantt-chart
+            html += '</div>';
+            html += '</div>';
+            html += '</div>';
 
             container.innerHTML = html;
 
-            // Обработчик переключения деления
             const selectEl = document.getElementById('gantt-division');
             if (selectEl) {
                 selectEl.addEventListener('change', function() {
@@ -146,14 +139,12 @@ async function renderGantt() {
                 });
             }
 
-            // Клик по задаче
             container.querySelectorAll('.gantt-bar').forEach(bar => {
                 bar.addEventListener('click', () => {
                     openTaskDetail(bar.dataset.id);
                 });
             });
 
-            // Масштабирование колесом мыши
             const rightCol = container.querySelector('.gantt-right-col');
             if (rightCol) {
                 if (rightCol._wheelHandler) {

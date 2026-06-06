@@ -1,4 +1,3 @@
-// Список участников
 async function loadMembers() {
     const list = document.getElementById('members-list');
     if (!list) return;

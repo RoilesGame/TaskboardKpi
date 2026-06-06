@@ -1,4 +1,3 @@
-/* ДИАГРАММА ГАНТА (с масштабированием и скроллом) */
 #gantt-panel {
     display: none;
     width: 100%;
@@ -30,7 +29,6 @@
     background: white;
 }
 
-/* Основной контейнер диаграммы */
 .gantt-chart {
     display: flex;
     background: #ffffff;
@@ -40,7 +38,6 @@
     overflow: hidden;
 }
 
-/* Левая колонка (названия задач) */
 .gantt-left-col {
     width: 240px;
     flex-shrink: 0;
@@ -70,14 +67,12 @@
     text-overflow: ellipsis;
 }
 
-/* Правая колонка (диаграмма) */
 .gantt-right-col {
     flex: 1;
-    overflow-x: auto;            /* <-- скролл, если не помещается */
+    overflow-x: auto;
     background: #ffffff;
 }
 
-/* Шкала месяцев */
 .gantt-timescale {
     position: relative;
     height: 44px;
@@ -93,19 +88,16 @@
     white-space: nowrap;
 }
 
-/* Контейнер сетки и полос */
 .gantt-grid-container {
     position: relative;
 }
 
-/* Строка с полосой */
 .gantt-row {
     position: relative;
     height: 48px;
     border-bottom: 1px solid #f3f4f6;
 }
 
-/* Полоса задачи */
 .gantt-bar {
     position: absolute;
     top: 8px;
@@ -119,7 +111,6 @@
     opacity: 0.85;
 }
 
-/* Вертикальные линии сетки */
 .gantt-grid-line {
     position: absolute;
     top: 0;
@@ -136,7 +127,6 @@
     width: 2px;
 }
 
-/* Линия сегодня */
 .gantt-today-line {
     position: absolute;
     top: 0;

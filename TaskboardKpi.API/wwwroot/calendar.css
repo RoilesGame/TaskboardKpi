@@ -10,7 +10,6 @@
     display: block;
 }
 
-/* Переключатель режимов */
 .calendar-mode-bar {
     display: flex;
     gap: 8px;
@@ -32,7 +31,6 @@
     border-color: #6366f1;
 }
 
-/* Сетка месяца */
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -52,7 +50,7 @@
 }
 .calendar-cell {
     background: white;
-    min-height: 100px;          /* было 80, стало выше */
+    min-height: 100px;   
     padding: 6px 8px;
     font-size: 11px;
     color: #1e293b;
@@ -63,10 +61,10 @@
 }
 .calendar-cell .task-dot {
     display: block;
-    padding: 6px 8px;          /* крупнее */
+    padding: 6px 8px;    
     margin: 3px 0;
     border-radius: 6px;
-    font-size: 12px;           /* крупнее */
+    font-size: 12px;       
     font-weight: 500;
     line-height: 1.4;
     background: #ede9fe;
@@ -95,7 +93,6 @@
     font-size: 15px;
 }
 
-/* Представления "Неделя" и "Сегодня" – список с белым фоном */
 .calendar-list {
     display: flex;
     flex-direction: column;

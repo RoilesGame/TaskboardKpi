@@ -144,6 +144,16 @@
             </select>
             <label>Дата начала</label>
             <input type="date" id="detail-task-start-date">
+
+            <label>Файлы</label>
+            <div id="files-container">
+                <ul id="files-list" style="list-style: none; margin-bottom: 8px;"></ul>
+                <div style="display: flex; gap: 8px;">
+                    <input type="file" id="file-upload-input" style="display: none;" multiple>
+                    <button type="button" id="attach-file-btn" class="btn-small">📎 Прикрепить файл</button>
+                </div>
+            </div>
+            
             <label>Срок выполнения</label>
             <input type="date" id="detail-task-due-date">
             <label>Исполнитель</label>

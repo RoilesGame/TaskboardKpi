@@ -511,12 +511,11 @@ body {
     display: block;
 }
 
-/* Секция участников */
 .members-section {
-    flex: 1;                /* забирает вторую половину доступного места */
-    overflow-y: auto;       /* вертикальный скролл */
-    min-height: 0;          /* разрешаем сжиматься */
-    margin-bottom: 16px;    /* отступ перед кнопками */
+    flex: 1;
+    overflow-y: auto;      
+    min-height: 0;          
+    margin-bottom: 16px;
     margin-top: 0;
 }
 
@@ -562,7 +561,6 @@ body {
     flex: 1;
 }
 
-/* Маленькие кнопки */
 .btn-small {
     font-size: 12px;
     padding: 4px 8px;
@@ -586,7 +584,7 @@ body {
     opacity: 1;
 }
 
-/* Toast-уведомления */
+
 #toast-container {
     position: fixed;
     top: 20px;
@@ -638,7 +636,7 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* Основной контент (правая часть) */
+
 .main-content {
     flex: 1;
     display: flex;
@@ -655,11 +653,9 @@ body {
     flex-direction: column;
 }
 #board-panel {
-    padding: 0; /* у самой доски свои отступы */
+    padding: 0;
 }
 
-/* Вкладки */
-/* Вкладки */
 .tabs {
     display: flex;
     gap: 4px;
@@ -690,7 +686,6 @@ body {
     color: white;
 }
 
-/* Панель событий */
 #events-panel {
     padding: 24px 32px;
     overflow-y: auto;
@@ -765,7 +760,6 @@ body {
     gap: 4px;
 }
 
-/* Адаптив для маленьких экранов */
 @media (max-width: 600px) {
     .event-item {
         flex-direction: column;
@@ -776,7 +770,6 @@ body {
     }
 }
 
-/* Горизонтальный ряд квадратных иконок */
 .sidebar-action-icons {
     display: flex;
     gap: 12px;
@@ -834,9 +827,8 @@ body {
     background: #fecaca;
 }
 
-/* Кнопка выхода (абсолютная) */
 .sidebar {
-    position: relative;   /* для абсолютного позиционирования кнопки выхода */
+    position: relative;
 }
 .logout-btn-absolute {
     position: absolute;

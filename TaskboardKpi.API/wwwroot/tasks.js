@@ -100,6 +100,10 @@ async function openTaskDetail(taskId) {
         }
 
         overlay.classList.remove('hidden');
+
+        // Загружаем файлы и инициализируем кнопку прикрепления после отображения окна
+        await loadFiles(taskId);
+        initFileUpload(taskId);
     } catch (err) {
         console.error(err);
         showToast('Не удалось загрузить задачу');
@@ -218,5 +222,90 @@ function initTaskDetailModal() {
         });
         if (res.ok) { showToast('Исполнитель назначен', 'success'); closeDetailAndReload(); }
         else { const err = await res.text(); showToast(err || 'Ошибка'); }
+    });
+}
+
+// ================== Файлы ==================
+async function loadFiles(taskId) {
+    const container = document.getElementById('files-scroll');
+    if (!container) return;
+    try {
+        const resp = await api(`/api/files/${taskId}`, {
+            headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        const files = resp.ok ? await resp.json() : [];
+        container.innerHTML = '';
+        files.forEach(f => {
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+            chip.innerHTML = `
+                <a href="${API_BASE}/api/files/download/${f.id}" target="_blank" title="${escapeHtml(f.fileName)}">
+                    📄 ${escapeHtml(f.fileName)} (${formatFileSize(f.fileSize)})
+                </a>
+                <button class="file-delete-btn" data-file-id="${f.id}" title="Удалить">✕</button>
+            `;
+            container.appendChild(chip);
+        });
+
+        container.querySelectorAll('.file-delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const fileId = btn.dataset.fileId;
+                if (!confirm('Удалить файл?')) return;
+                await api(`/api/files/${fileId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${currentToken}` }
+                });
+                await loadFiles(taskId);
+            });
+        });
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function formatFileSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' Б';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
+}
+
+function initFileUpload(taskId) {
+    const input = document.getElementById('file-upload-input');
+    const attachBtn = document.getElementById('attach-file-btn');
+    if (!input || !attachBtn) return;
+
+    const newAttachBtn = attachBtn.cloneNode(true);
+    attachBtn.parentNode.replaceChild(newAttachBtn, attachBtn);
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+
+    newAttachBtn.addEventListener('click', () => newInput.click());
+
+    newInput.addEventListener('change', async () => {
+        const files = newInput.files;
+        if (!files.length) return;
+
+        const formData = new FormData();
+        for (let f of files) {
+            formData.append('file', f);
+        }
+
+        const resp = await api(`/api/files/${taskId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentToken}` },
+            body: formData
+        });
+
+        if (resp.ok) {
+            showToast('Файлы прикреплены', 'success');
+            await loadFiles(taskId);
+        } else {
+            const err = await resp.text();
+            showToast(err || 'Ошибка загрузки');
+        }
+        newInput.value = '';
     });
 }
